@@ -1,17 +1,8 @@
 #!/usr/bin/env bash
-# Build a macOS .pkg installer for LogicX MCP (AU v2 + standalone) from the Truce build tree.
-#
-# Pattern matches audiohacking/aitroce-vst/scripts/build-installer-pkg.sh
-#
-# Run from repo root after:
-#   cargo truce build --au2 -p logicx-plugin
-#   ./scripts/build-installer-pkg.sh --build-standalone --sign-plugins
-#
-# Or let this script build everything:
-#   ./scripts/build-installer-pkg.sh --build --sign-plugins
+# Build a macOS .pkg installer for LogicX MCP (AU v2 + standalone app + control bridge).
 #
 # Usage:
-#   ./scripts/build-installer-pkg.sh [--build] [--build-standalone] [--sign-plugins] [--version 0.1.0]
+#   ./scripts/build-installer-pkg.sh [--build] [--sign-plugins] [--version 0.1.0]
 #   ./scripts/build-installer-pkg.sh --au path/to/LogicX\ MCP.component --standalone path/to/LogicX\ MCP.app
 #
 # Output:
@@ -19,8 +10,8 @@
 #   release-artefacts/LogicX-MCP-macOS-Installer.pkg
 #
 # Installs to:
-#   /Library/Audio/Plug-Ins/Components/  (AU v2)
-#   /Applications/                       (standalone .app)
+#   /Library/Audio/Plug-Ins/Components/LogicX MCP.component  (+ logicx-control-bridge)
+#   /Applications/LogicX MCP.app
 
 set -euo pipefail
 
@@ -28,17 +19,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-PLUGIN_DISPLAY_NAME="LogicX MCP"
+# shellcheck source=scripts/stage-bundles.sh
+source "$SCRIPT_DIR/stage-bundles.sh"
+
 AU_COMPONENT_NAME="LogicX MCP.component"
 STANDALONE_APP_NAME="LogicX MCP.app"
-STANDALONE_BIN="logicx-mcp-standalone"
 PKG_ID="com.audiohacking.logicx-mcp"
 OUT_DIR="release-artefacts"
-ZIP_NAME=""
 PKG_NAME="LogicX-MCP-macOS-Installer.pkg"
 
 DO_BUILD=false
-BUILD_STANDALONE=false
 SIGN_PLUGINS=false
 PKG_VERSION=""
 AU_PATH=""
@@ -46,14 +36,14 @@ STANDALONE_PATH=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --build)            DO_BUILD=true; shift ;;
-    --build-standalone) BUILD_STANDALONE=true; shift ;;
-    --sign-plugins)     SIGN_PLUGINS=true; shift ;;
-    --version)          PKG_VERSION="$2"; shift 2 ;;
-    --au)               AU_PATH="$2"; shift 2 ;;
-    --standalone)       STANDALONE_PATH="$2"; shift 2 ;;
+    --build)        DO_BUILD=true; shift ;;
+    --build-standalone) DO_BUILD=true; shift ;; # legacy alias
+    --sign-plugins) SIGN_PLUGINS=true; shift ;;
+    --version)      PKG_VERSION="$2"; shift 2 ;;
+    --au)           AU_PATH="$2"; shift 2 ;;
+    --standalone)   STANDALONE_PATH="$2"; shift 2 ;;
     -h|--help)
-      sed -n '1,26p' "$0"
+      sed -n '1,20p' "$0"
       exit 0
       ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
@@ -65,63 +55,10 @@ if [ -z "$PKG_VERSION" ]; then
 fi
 ZIP_NAME="logicx-mcp-${PKG_VERSION}-macos-au-standalone.zip"
 
-stage_standalone_app() {
-  local built="target/release/${STANDALONE_BIN}"
-  local staged="target/bundles/${STANDALONE_APP_NAME}"
-
-  if [ ! -f "$built" ]; then
-    echo "Building standalone binary..." >&2
-    cargo build --release -p logicx-plugin --features standalone
-    built="target/release/${STANDALONE_BIN}"
-  fi
-
-  if [ ! -f "$built" ]; then
-    echo "Error: standalone binary not found at $built" >&2
-    exit 1
-  fi
-
-  echo "Staging ${STANDALONE_APP_NAME}..." >&2
-  rm -rf "$staged"
-  mkdir -p "$staged/Contents/MacOS"
-  cp "$built" "$staged/Contents/MacOS/${STANDALONE_BIN}"
-  chmod 755 "$staged/Contents/MacOS/${STANDALONE_BIN}"
-
-  cat > "$staged/Contents/Info.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleName</key>
-    <string>${PLUGIN_DISPLAY_NAME}</string>
-    <key>CFBundleDisplayName</key>
-    <string>${PLUGIN_DISPLAY_NAME}</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.audiohacking.logicx-mcp.standalone</string>
-    <key>CFBundleExecutable</key>
-    <string>${STANDALONE_BIN}</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleVersion</key>
-    <string>${PKG_VERSION}</string>
-    <key>CFBundleShortVersionString</key>
-    <string>${PKG_VERSION}</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>${PLUGIN_DISPLAY_NAME} would like to use the microphone for plugin audio input.</string>
-</dict>
-</plist>
-EOF
-}
-
 if [ "$DO_BUILD" = true ]; then
-  echo "Building AU v2..." >&2
-  cargo truce build --au2 -p logicx-plugin
-  BUILD_STANDALONE=true
-fi
-
-if [ "$BUILD_STANDALONE" = true ]; then
-  stage_standalone_app
+  stage_all_bundles "$PKG_VERSION"
+  AU_PATH="${STAGED_AU:-}"
+  STANDALONE_PATH="${STAGED_APP:-}"
 fi
 
 if [ -z "$AU_PATH" ]; then
@@ -133,18 +70,23 @@ if [ -z "$STANDALONE_PATH" ]; then
 fi
 
 if [ -z "$AU_PATH" ] || [ ! -d "$AU_PATH" ]; then
-  echo "Error: ${AU_COMPONENT_NAME} not found. Build first:" >&2
-  echo "  cargo truce build --au2 -p logicx-plugin" >&2
-  find target -type d -name "*.component" 2>/dev/null || true
+  echo "Error: ${AU_COMPONENT_NAME} not found. Run with --build or:" >&2
+  echo "  ./scripts/build-installer-pkg.sh --build" >&2
   exit 1
 fi
 
 if [ -z "$STANDALONE_PATH" ] || [ ! -d "$STANDALONE_PATH" ]; then
-  echo "Error: ${STANDALONE_APP_NAME} not found. Stage standalone first:" >&2
-  echo "  ./scripts/build-installer-pkg.sh --build-standalone" >&2
-  find target/bundles -type d -name "*.app" 2>/dev/null || true
+  echo "Error: ${STANDALONE_APP_NAME} not found. Run with --build." >&2
   exit 1
 fi
+
+# Ensure bridge is embedded even when using prebuilt paths.
+if [ ! -f "$AU_PATH/Contents/MacOS/logicx-control-bridge" ]; then
+  echo "Embedding control bridge into AU..." >&2
+  cargo build --release -p logicx-control-bridge 2>/dev/null || cargo build --release -p logicx-control-bridge
+  embed_control_bridge "$AU_PATH"
+fi
+embed_bridge_in_app "$STANDALONE_PATH" 2>/dev/null || true
 
 echo "Using AU:         $AU_PATH"
 echo "Using standalone: $STANDALONE_PATH"
@@ -181,6 +123,12 @@ pkgbuild \
   "$OUT_DIR/$PKG_NAME"
 
 rm -rf payload
-echo "Created ${OUT_DIR}/${PKG_NAME} (version ${PKG_VERSION})"
+echo ""
+echo "=== PKG ready ==="
+echo "  ${OUT_DIR}/${PKG_NAME} (version ${PKG_VERSION})"
+echo "  Installs:"
+echo "    /Library/Audio/Plug-Ins/Components/${AU_COMPONENT_NAME}"
+echo "    /Applications/${STANDALONE_APP_NAME}"
+echo ""
 echo "Install: sudo installer -pkg ${OUT_DIR}/${PKG_NAME} -target /"
-echo "Or open the .pkg in Finder for a GUI install."
+echo "Or open the .pkg in Finder."

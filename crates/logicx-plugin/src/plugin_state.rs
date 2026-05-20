@@ -9,6 +9,10 @@ pub struct PluginState {
     pub busy: bool,
     /// JSON-serialized `Vec<ChatMessage>` — State derive supports String fields.
     pub messages_json: String,
+    /// `connected` | `disconnected` | `checking`
+    pub ollama_status: String,
+    pub connection_summary: String,
+    pub build_id: String,
 }
 
 impl Default for PluginState {
@@ -20,6 +24,9 @@ impl Default for PluginState {
             status_line: String::new(),
             busy: false,
             messages_json: "[]".into(),
+            ollama_status: "checking".into(),
+            connection_summary: "Checking Ollama…".into(),
+            build_id: crate::BUILD_ID.to_string(),
         }
     }
 }

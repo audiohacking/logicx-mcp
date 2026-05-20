@@ -1,0 +1,16 @@
+[package]
+name = "logicx-ollama-proxy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Out-of-process Ollama HTTP proxy for LogicX MCP AU (bypasses DAW network sandbox)"
+
+[[bin]]
+name = "logicx-ollama-proxy"
+path = "src/main.rs"
+
+[dependencies]
+logicx-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

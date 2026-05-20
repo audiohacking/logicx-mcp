@@ -64,22 +64,57 @@ Common commands:
 cargo test --workspace
 cargo truce run -p logicx-plugin                    # standalone dev
 cargo truce build --au2 -p logicx-plugin           # ad-hoc sign OK, no Xcode/certs required
-cargo truce install --au2 --user -p logicx-plugin
+./scripts/install-au.sh                             # user install + sandboxSafe=false (Logic + Ollama)
+./scripts/reinstall-for-test.sh                     # kill bridge + install-au (REQUIRED before Logic testing)
+./scripts/test-live.sh                              # reinstall + live_logic (+ live_smoke if Ollama up)
+cargo truce install --au2 --user -p logicx-plugin # plain install (no Ollama in AU — use install-au.sh)
 ./scripts/build-installer-pkg.sh --build --sign-plugins
 ```
+
+### Before testing in Logic Pro (required for agents)
+
+**Always reinstall the latest AU + app before manual or in-Logic verification.** Code changes are not loaded until bundles are rebuilt and copied to `~/Library/...` and Logic Pro is restarted.
+
+```bash
+./scripts/reinstall-for-test.sh   # preferred: kill stale bridge + full install
+# or
+./scripts/install-au.sh
+```
+
+Then:
+
+1. **Quit Logic Pro** completely (Cmd+Q), relaunch.
+2. Confirm the AU debug header shows the expected **build id** (git SHA, `-dirty` if uncommitted changes).
+3. Run `./scripts/kill-bridge.sh` only if you suspect a stale control bridge without reinstalling.
+
+Do **not** assume `cargo build` alone updates the AU Logic loads — only `install-au.sh` / `reinstall-for-test.sh` deploy to the plugin paths.
 
 AU v2 builds with **ad-hoc signing** (`-`) — no Developer ID or Xcode required. We intentionally do **not** ship AU v3 (appex bundles need a real signing identity + team ID).
 
 ## Channel porting status
 
-Port from **MongLong0214** in this order:
+Reference: [MongLong0214/logic-pro-mcp](https://github.com/MongLong0214/logic-pro-mcp) (~90 routed ops, native Swift AX, MCU feedback).
 
-1. CoreMIDI + MMC + SMF `record_sequence` import (AX path)
-2. MCU (mixer + transport feedback)
-3. Accessibility (tracks, library, import dialog)
-4. CGEvent, AppleScript, Scripter, MIDIKeyCommands
+| Area | Status |
+|------|--------|
+| 8-tool MCP contract + routing table | Done (subset of ops wired in channels) |
+| CoreMIDI + MMC + SMF `record_sequence` | Done |
+| MCU encode (mixer/transport) | Done — **feedback/poller pending** |
+| Accessibility (tracks, library, import) | Done via AppleScript/AX scripts |
+| CGEvent fallbacks + `set_tempo` | Done |
+| AppleScript project lifecycle | Done |
+| AU control bridge (companion app) | Done — logic-pro-mcp process model |
+| MIDIKeyCommands (true CC path) | Partial — delegates to CGEvent |
+| Scripter CC bridge | Stub |
+| Native Swift AX / StatePoller | Not started |
+| Operator approval gates | Not started |
 
-Stubs return **Honest Contract** JSON (`success`, `verified`, `reason`/`error`).
+Port order for parity:
+
+1. MCU bidirectional feedback + transport/mixer state cache
+2. Native AX helpers (or bridge-only parity via companion app)
+3. Scripter + KeyCmd approval workflow
+4. Resource reads (`logic://transport/state`, etc.) backed by cache
 
 ## System prompt
 

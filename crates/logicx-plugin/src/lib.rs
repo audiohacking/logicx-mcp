@@ -1,6 +1,8 @@
 mod editor;
 mod plugin_state;
 
+pub const BUILD_ID: &str = env!("LOGICX_BUILD_ID");
+
 use std::sync::Arc;
 use truce::prelude::*;
 use truce_core::custom_state::State as StateTrait;

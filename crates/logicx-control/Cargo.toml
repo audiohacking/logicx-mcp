@@ -10,6 +10,11 @@ logicx-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+once_cell = "1"
+parking_lot = "0.12"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 uuid = { version = "1", features = ["v4"] }
+midir = "0.10"
+core-graphics = { version = "0.24", features = ["elcapitan"] }
+core-foundation = "0.10"

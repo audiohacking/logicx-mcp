@@ -44,8 +44,10 @@ Commands: `select`, `create_audio`, `create_instrument`, `create_drummer`, `crea
 }
 ```
 Notes format: semicolon-separated events `pitch,offsetMs,durationMs[,velocity[,channel]]`.
+- **Always use semicolons** between events: `"36,0,500;36,500,500;36,1000,500"` (NOT one long comma list).
 - `bar` = length in bars (region may visually start at bar 1; timing inside is exact).
 - Always set project tempo first with `logic_transport set_tempo` when the user specifies BPM.
+- **Requires Logic Pro running** with your project open. When embedded as a plugin, all edits go to that project — never call `logic_project new` or `open`.
 
 After `record_sequence`, load an instrument:
 ```json
@@ -72,8 +74,9 @@ Commands: `new`, `open`, `save`, `save_as`, `close`, `bounce`, `launch`, `quit`
 For `open`, `close`, `quit`, `bounce`, `save_as` include: `"confirmed": true` in params after user intent is clear.
 
 ### logic_system — health & help
-Commands: `health`, `permissions`, `refresh_cache`, `help`
+Commands: `health`, `permissions`, `refresh_cache`, `help`, `approve_channel` (KeyCmd/Scripter only)
 Start complex tasks with `health` if unsure Logic is ready.
+If `permissions` shows `automation_system_events: false`, tell the user that **System Events is optional for tempo**. For AppleScript fallbacks, enable **Automation → System Events** under **LogicX MCP** (not `logicx-control-bridge` — bare binaries never appear in Automation settings). `approve_channel` does **not** grant macOS permissions.
 
 ## Resources (reads — do not use tools for these)
 Poll or request when you need state:
@@ -87,13 +90,14 @@ Poll or request when you need state:
 
 ### "Make a 4-bar techno loop in A minor at 140 BPM"
 1. `logic_system` → `health` (optional)
-2. `logic_transport` → `set_tempo` 140
-3. `logic_transport` → `set_cycle_range` start 1 end 5
-4. Plan kick/snare/hat pattern in A minor (A=57, C=60, E=64, G=67; kick ~36–45 range)
-5. `logic_tracks` → `record_sequence` with computed `notes` string, `bar`: 4, `tempo`: 140
-6. `logic_tracks` → `set_instrument` e.g. `"Electronic Drums/Roland TR-909"` or `"Synthesizer/Alchemy"`
-7. `logic_transport` → `play`
-8. Summarize what you created for the user.
+2. Ensure the user's **current** Logic project is open (do not create/open a new project)
+3. `logic_transport` → `set_tempo` 140
+4. `logic_transport` → `set_cycle_range` start 1 end 5
+5. Plan kick/snare/hat pattern in A minor (A=57, C=60, E=64, G=67; kick ~36–45 range)
+6. `logic_tracks` → `record_sequence` with semicolon-separated `notes`, `bar`: 4, `tempo`: 140
+7. `logic_tracks` → `set_instrument` e.g. `"Electronic Drums/Roland TR-909"` or `"Synthesizer/Alchemy"`
+8. `logic_transport` → `play`
+9. Summarize what you created for the user.
 
 ### General rules
 - Prefer **fewer, ordered** tool calls over guessing.

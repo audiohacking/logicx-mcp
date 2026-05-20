@@ -1,9 +1,16 @@
+mod approvals;
+pub mod bridge;
+mod cache;
+pub mod channels;
 mod executor;
-mod notes;
-mod smf;
-
-#[cfg(target_os = "macos")]
 mod macos;
+pub mod midi;
+pub mod notes;
+pub mod smf;
+
+pub use channels::router::{
+    bypass_readiness_ops, is_terminal_error, operation_for_tool, route_chain, routing_table,
+};
 
 #[cfg(not(target_os = "macos"))]
 mod macos {
@@ -12,26 +19,31 @@ mod macos {
     pub fn is_logic_running() -> bool {
         false
     }
-
-    pub fn transport_play() -> HonestResult {
+    pub fn is_ax_trusted() -> bool {
+        false
+    }
+    pub fn automation_ok() -> bool {
+        false
+    }
+    pub fn automation_system_events_ok() -> bool {
+        false
+    }
+    pub fn get_tracks() -> HonestResult {
         HonestResult::failed("macOS only")
     }
-
-    pub fn transport_stop() -> HonestResult {
+    pub fn project_info() -> HonestResult {
         HonestResult::failed("macOS only")
     }
-
-    pub fn transport_set_tempo(_tempo: f64) -> HonestResult {
-        HonestResult::failed("macOS only")
-    }
-
-    pub fn transport_goto_bar(_bar: u32) -> HonestResult {
-        HonestResult::failed("macOS only")
-    }
-
-    pub fn import_midi_file(_path: &str) -> HonestResult {
+    pub fn get_markers() -> HonestResult {
         HonestResult::failed("macOS only")
     }
 }
 
+pub use cache::{
+    CacheSnapshot, ChannelStripState, MarkerState, ProjectInfo, RegionState, StateCache,
+    TrackState, TransportState,
+};
 pub use executor::LogicExecutor;
+
+#[cfg(target_os = "macos")]
+pub use bridge::{ensure_running, should_delegate};

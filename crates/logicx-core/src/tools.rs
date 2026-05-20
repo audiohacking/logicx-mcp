@@ -110,6 +110,7 @@ fn tracks_commands() -> &'static [&'static str] {
         "list_library",
         "scan_library",
         "resolve_path",
+        "scan_plugin_presets",
     ]
 }
 
@@ -119,6 +120,8 @@ fn mixer_commands() -> &'static [&'static str] {
         "set_pan",
         "set_master_volume",
         "set_plugin_param",
+        "set_send",
+        "toggle_eq",
     ]
 }
 
@@ -136,7 +139,10 @@ fn midi_commands() -> &'static [&'static str] {
         "mmc_play",
         "mmc_stop",
         "mmc_record",
+        "mmc_record_exit",
+        "mmc_pause",
         "mmc_locate",
+        "play_sequence",
     ]
 }
 
@@ -174,12 +180,23 @@ fn navigate_commands() -> &'static [&'static str] {
 
 fn project_commands() -> &'static [&'static str] {
     &[
-        "new", "open", "save", "save_as", "close", "bounce", "launch", "quit",
+        "new", "open", "save", "save_as", "close", "bounce", "launch", "quit", "is_running",
+        "get_regions",
     ]
 }
 
 fn system_commands() -> &'static [&'static str] {
-    &["health", "permissions", "refresh_cache", "help"]
+    &[
+        "health",
+        "permissions",
+        "refresh_cache",
+        "refresh",
+        "read_resource",
+        "help",
+        "approve_channel",
+        "list_approvals",
+        "restart_bridge",
+    ]
 }
 
 #[cfg(test)]

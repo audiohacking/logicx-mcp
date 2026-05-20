@@ -139,5 +139,13 @@ pub enum UiAgentEvent {
     Error {
         message: String,
     },
+    /// Connectivity probe result (header indicator).
+    Connection {
+        report: super::connection::OllamaConnectionReport,
+    },
+    /// Debug line for the output / log panel.
+    Debug {
+        line: String,
+    },
     Done,
 }

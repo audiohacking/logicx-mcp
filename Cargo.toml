@@ -4,6 +4,8 @@ members = [
     "crates/logicx-core",
     "crates/logicx-control",
     "crates/logicx-agent",
+    "crates/logicx-ollama-proxy",
+    "crates/logicx-control-bridge",
     "crates/logicx-plugin",
 ]
 

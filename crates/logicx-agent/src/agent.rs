@@ -1,10 +1,12 @@
 use crate::ollama::{ChatRequest, OllamaClient, OllamaMessage};
+use crate::connection::check_ollama_connection_with_events;
 use logicx_control::LogicExecutor;
 use logicx_core::{
     AgentSettings, ChatMessage, ChatRole, SYSTEM_PROMPT, ToolInvocation, UiAgentEvent,
     ollama_tool_definitions,
 };
 use serde_json::Value;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::mpsc::Sender;
 
 pub fn run_agent(
@@ -12,7 +14,10 @@ pub fn run_agent(
     history: Vec<ChatMessage>,
     settings: AgentSettings,
     events: Sender<UiAgentEvent>,
+    build_id: String,
 ) {
+    check_ollama_connection_with_events(settings.clone(), build_id.clone(), events.clone());
+
     let _ = events.send(UiAgentEvent::Status {
         text: format!("Connecting to Ollama ({})…", settings.model),
     });
@@ -58,6 +63,12 @@ pub fn run_agent(
         }) {
             Ok(r) => r,
             Err(e) => {
+                let _ = events.send(UiAgentEvent::Debug {
+                    line: format!("chat error: {e}"),
+                });
+                let _ = events.send(UiAgentEvent::Debug {
+                    line: format!("ollama_url={}", settings.ollama_base_url),
+                });
                 let _ = events.send(UiAgentEvent::Error {
                     message: format!("Ollama error: {e}"),
                 });
@@ -79,12 +90,22 @@ pub fn run_agent(
                     arguments: args.clone(),
                 });
 
-                let result = executor
-                    .execute(&ToolInvocation {
+                let result = match catch_unwind(AssertUnwindSafe(|| {
+                    executor.execute(&ToolInvocation {
                         name: name.clone(),
-                        arguments: args,
+                        arguments: args.clone(),
                     })
-                    .unwrap_or_else(|e| format!("{{\"success\":false,\"error\":\"{e}\"}}"));
+                })) {
+                    Ok(Ok(json)) => json,
+                    Ok(Err(e)) => format!("{{\"success\":false,\"error\":\"{e}\"}}"),
+                    Err(_) => {
+                        logicx_core::diagnostic_log::append_plugin_log(&format!(
+                            "tool PANIC: {name}"
+                        ));
+                        "{\"success\":false,\"error\":\"tool handler panicked (see plugin.log)\"}"
+                            .into()
+                    }
+                };
 
                 let _ = events.send(UiAgentEvent::ToolFinished {
                     name: name.clone(),
@@ -107,9 +128,8 @@ pub fn run_agent(
                 content: text.to_string(),
             });
         } else {
-            let _ = events.send(UiAgentEvent::Assistant {
-                content: "(No response text from model.)".into(),
-            });
+            let fallback = synthesize_assistant_reply(&messages);
+            let _ = events.send(UiAgentEvent::Assistant { content: fallback });
         }
         let _ = events.send(UiAgentEvent::Done);
         return;
@@ -122,6 +142,31 @@ pub fn run_agent(
         ),
     });
     let _ = events.send(UiAgentEvent::Done);
+}
+
+fn synthesize_assistant_reply(messages: &[OllamaMessage]) -> String {
+    for msg in messages.iter().rev() {
+        if msg.role != "tool" {
+            continue;
+        }
+        if let Ok(v) = serde_json::from_str::<Value>(&msg.content) {
+            if v.get("success").and_then(|s| s.as_bool()) == Some(true) {
+                if let Some(detail) = v.get("detail") {
+                    return format!(
+                        "Done.\n{}",
+                        serde_json::to_string_pretty(detail).unwrap_or_default()
+                    );
+                }
+                return "Done — tool succeeded (see debug log for details).".into();
+            }
+            if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+                return format!("Tool failed: {err}");
+            }
+        }
+        let preview: String = msg.content.chars().take(400).collect();
+        return format!("Tool result:\n{preview}");
+    }
+    "Command completed.".into()
 }
 
 fn chat_to_ollama(msg: &ChatMessage) -> OllamaMessage {
