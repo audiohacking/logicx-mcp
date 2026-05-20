@@ -1,0 +1,16 @@
+[vendor]
+name = "audiohacking"
+id = "com.audiohacking"
+url = "https://github.com/audiohacking/logicx-mcp"
+au_manufacturer = "Audi"
+
+[[plugin]]
+name = "LogicX MCP"
+bundle_id = "logicx-mcp"
+crate = "logicx-plugin"
+category = "effect"
+fourcc = "LgXM"
+au_tag = "Effects"
+
+[packaging]
+preferred_scope = "user"

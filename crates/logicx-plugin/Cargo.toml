@@ -1,0 +1,38 @@
+[package]
+name = "logicx-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[[bin]]
+name = "logicx-mcp-standalone"
+path = "src/main.rs"
+required-features = ["standalone"]
+
+[features]
+default = ["au", "standalone"]
+au = ["dep:truce-au"]
+standalone = ["dep:truce-standalone"]
+shell = ["truce/shell"]
+
+[dependencies]
+truce = { git = "https://github.com/truce-audio/truce", tag = "v0.45.4" }
+truce-core = { git = "https://github.com/truce-audio/truce", tag = "v0.45.4" }
+truce-gui = { git = "https://github.com/truce-audio/truce", tag = "v0.45.4" }
+truce-egui = { git = "https://github.com/truce-audio/truce", tag = "v0.45.4" }
+truce-loader = { git = "https://github.com/truce-audio/truce", tag = "v0.45.4" }
+truce-au = { git = "https://github.com/truce-audio/truce", tag = "v0.45.4", optional = true }
+truce-standalone = { git = "https://github.com/truce-audio/truce", tag = "v0.45.4", features = ["gui"], optional = true }
+egui = "0.31"
+logicx-core = { workspace = true }
+logicx-control = { workspace = true }
+logicx-agent = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+truce-test = { git = "https://github.com/truce-audio/truce", tag = "v0.45.4" }

@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/logicx-core",
+    "crates/logicx-control",
+    "crates/logicx-agent",
+    "crates/logicx-plugin",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/audiohacking/logicx-mcp"
+
+[workspace.dependencies]
+logicx-core = { path = "crates/logicx-core" }
+logicx-control = { path = "crates/logicx-control" }
+logicx-agent = { path = "crates/logicx-agent" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[profile.shell]
+inherits = "release"

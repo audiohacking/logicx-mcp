@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: macOS build & test
+    runs-on: macos-14
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.90"
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: macos-14-ci
+
+      - name: Read Truce tag
+        id: truce
+        run: |
+          tag=$(sed -n 's/.*tag = "\([^"]*\)".*/\1/p' crates/logicx-plugin/Cargo.toml | head -1)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Install cargo-truce
+        run: |
+          cargo install cargo-truce \
+            --git https://github.com/truce-audio/truce \
+            --tag "${{ steps.truce.outputs.tag }}" \
+            --locked \
+            --force
+
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: test
+        run: cargo test --workspace
+
+      - name: Build AU v2 bundle
+        run: cargo truce build --au2 -p logicx-plugin
+
+      - name: Verify plugin metadata
+        run: cargo test -p logicx-plugin info_is_valid has_editor
