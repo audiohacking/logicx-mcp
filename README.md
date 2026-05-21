@@ -2,11 +2,10 @@
 
 Chat with **Logic Pro** from inside a **Truce AU v2 plugin**. A local **Ollama** model (e.g. `qwen3.5`) plans and runs DAW actions—tempo, tracks, MIDI, transport, mixer—through natural language.
 
-<img width="400" alt="Screenshot 2026-05-21 at 10 50 50" src="https://github.com/user-attachments/assets/6ef94e9f-d1e0-4ffe-8b06-6c499a8b6570" />
+<img width="400" alt="Screenshot 2026-05-21 at 10 53 53" src="https://github.com/user-attachments/assets/f2b299c9-a5c6-42e2-ac96-a16b4c3413a1" />
 
-### Status
 
-- Very Experimental ⚠️ use at your own risk
+> Very Experimental ⚠️ use at your own risk!
 
 ## Install
 
