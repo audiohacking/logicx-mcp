@@ -4,6 +4,9 @@ Chat with **Logic Pro** from inside a **Truce AU v2 plugin**. A local **Ollama**
 
 <img width="400" alt="Screenshot 2026-05-21 at 10 50 50" src="https://github.com/user-attachments/assets/6ef94e9f-d1e0-4ffe-8b06-6c499a8b6570" />
 
+### Status
+
+- Very Experimental ⚠️ use at your own risk
 
 ## Install
 
