@@ -1,73 +1,93 @@
 # LogicX MCP
 
-Local-first Logic Pro assistant as a **Truce AU v2 plugin** with an embedded chat UI. Uses **Ollama** (e.g. `qwen3.5`) and the [Logic Pro MCP](https://github.com/MongLong0214/logic-pro-mcp) tool contract to control Logic from natural language.
+Chat with **Logic Pro** from inside a **Truce AU v2 plugin**. A local **Ollama** model (e.g. `qwen3.5`) plans and runs DAW actions—tempo, tracks, MIDI, transport, mixer—through natural language.
 
-## Quick start
+## Install
 
-### Prerequisites
-
-- macOS 14+, Logic Pro 12+
-- [Rust](https://rustup.rs/) 1.90+
-- Xcode CLI tools
-- [Ollama](https://ollama.com/) running locally
+**Requirements:** macOS 14+, Logic Pro 12+, [Ollama](https://ollama.com/)
 
 ```bash
 ollama pull qwen3.5
-ollama serve   # if not already running
+./scripts/install-au.sh
 ```
 
-### Build & install
+Installs the **AU plugin** and **`LogicX MCP.app`** (companion control host). Logic control goes through that app—do not use `cargo truce install` alone.
 
-```bash
-cargo truce install --au2 --user -p logicx-plugin
-```
-
-Standalone (for development without Logic):
-
-```bash
-cargo truce run -p logicx-plugin
-```
-
-Package locally (AU + standalone zip + `.pkg`):
+**System installer (.pkg):**
 
 ```bash
 ./scripts/build-installer-pkg.sh --build --sign-plugins
+sudo installer -pkg release-artefacts/LogicX-MCP-macOS-Installer.pkg -target /
 ```
 
-### Usage in Logic Pro
+## Required: Accessibility & Automation
 
-1. Load **LogicX MCP** on any track (utility / pass-through).
-2. Open the plugin window.
-3. Type: *"Make a 4-bar techno loop in A minor at 140 BPM"*
-4. The agent calls Logic tools (`logic_transport`, `logic_tracks`, …) via Ollama function calling.
+**Nothing in Logic will work until this is done.** The plugin inside Logic delegates control to **`LogicX MCP.app`**. That bridge reads and drives Logic’s UI via macOS permissions.
 
-Settings (⚙): Ollama URL (default `http://127.0.0.1:11434`) and model name.
+### 1. Accessibility
 
-## Architecture
+1. **System Settings → Privacy & Security → Accessibility**
+2. Add **LogicX MCP** (`~/Applications` or `/Applications`) if it is missing
+3. Turn **LogicX MCP** **ON**
 
+Needed for tempo, transport, track state, and most control.
+
+### 2. Automation
+
+1. **System Settings → Privacy & Security → Automation**
+2. Select **LogicX MCP** (not `logicx-control-bridge`—bare binaries never appear here)
+3. Enable **Logic Pro**
+4. Enable **System Events**
+
+If **LogicX MCP** is not listed yet, run once to trigger the prompt:
+
+```bash
+~/Applications/LogicX\ MCP.app/Contents/MacOS/logicx-control-bridge
 ```
-Chat UI (egui) → logicx-agent (Ollama loop) → logicx-control (8 dispatchers) → Logic Pro
-                     ↑
-              logicx-core (system prompt + tool schemas)
+
+Press **Ctrl+C** after the dialog, then enable the toggles above.
+
+### 3. Relaunch & verify
+
+1. Quit Logic Pro (**Cmd+Q**) and reopen
+2. Load the **LogicX MCP** AU and send a command, e.g. *set tempo to 140*
+3. In chat, run **`logic_system` → `permissions`**. Expect:
+
+| Check | Value |
+|-------|--------|
+| `accessibility` | `true` |
+| `tempo_control_ready` | `true` |
+| `permission_subject` | `"LogicX MCP"` |
+
+Tempo needs **Accessibility** only. Track creation, MIDI import, and menu fallbacks also need **Automation → System Events**.
+
+Permission or control errors? Re-check toggles for **LogicX MCP**, then see [docs/SETUP.md](docs/SETUP.md) (MCU ports, reinstall, debug).
+
+## Use in Logic
+
+1. Insert **LogicX MCP** on any track (pass-through utility)
+2. Open the plugin window
+3. Ask in plain language, e.g. *Make a 4-bar techno loop in A minor at 140 BPM*
+
+The agent calls built-in tools (`logic_transport`, `logic_tracks`, `logic_mixer`, …). Settings (⚙): Ollama URL (default `http://127.0.0.1:11434`) and model name.
+
+**Before testing a new build:**
+
+```bash
+./scripts/reinstall-for-test.sh   # rebuild, install, restart bridge
 ```
 
-Porting [MongLong0214/logic-pro-mcp](https://github.com/MongLong0214/logic-pro-mcp) channels (MCU, AX, CoreMIDI, …) is in progress. v0.1 includes:
+Then quit and relaunch Logic Pro.
 
-- Full **system prompt** and **8 Ollama tool definitions**
-- **SMF generation** for `record_sequence`
-- **AppleScript** stubs for transport / health
-- **Honest Contract** JSON responses
+## Developers
 
-## Permissions
+```bash
+cargo truce run -p logicx-plugin          # standalone UI
+cargo test --workspace
+./scripts/test-live.sh --ignored          # Logic + Ollama (after reinstall)
+```
 
-Grant **Automation** (control Logic Pro) and **Accessibility** when macOS prompts — required as more channels come online.
-
-## CI & releases
-
-- **PR CI:** `.github/workflows/ci.yml` — fmt, clippy, tests on `macos-14`
-- **Release:** push tag `v*` → builds AU v2 + standalone, runs `scripts/build-installer-pkg.sh`, uploads zip + `.pkg` to GitHub Releases (ad-hoc signed, no certs required)
-
-See [AGENTS.md](AGENTS.md) for contributor/agent guidance.
+Contributor notes: [AGENTS.md](AGENTS.md) · Full setup: [docs/SETUP.md](docs/SETUP.md)
 
 ## License
 
