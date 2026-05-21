@@ -143,6 +143,8 @@ mod macos_impl {
                     running_in_app_bundle: logicx_core::runtime::running_in_app_bundle(),
                     accessibility: ax,
                     tempo_control_ready: ax,
+                    automation_logic_pro: crate::macos::automation_logic_ok(),
+                    automation_system_events: crate::macos::automation_system_events_ok(),
                 };
                 BridgeResponse::success(status.to_json())
             }

@@ -72,6 +72,10 @@ pub struct BridgeStatus {
     pub running_in_app_bundle: bool,
     pub accessibility: bool,
     pub tempo_control_ready: bool,
+    #[serde(default)]
+    pub automation_logic_pro: bool,
+    #[serde(default)]
+    pub automation_system_events: bool,
 }
 
 impl BridgeStatus {

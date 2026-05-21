@@ -90,7 +90,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn read_missing_log_is_empty() {
-        assert!(read_plugin_log_tail(1024).is_empty());
+    fn read_tail_missing_file_is_empty() {
+        let path = plugin_log_path().with_file_name("logicx-mcp-test-missing.log");
+        let _ = fs::remove_file(&path);
+        assert!(read_tail(&path, 1024).is_empty());
     }
 }

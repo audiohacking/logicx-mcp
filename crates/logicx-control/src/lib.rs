@@ -6,6 +6,7 @@ mod executor;
 mod macos;
 pub mod midi;
 pub mod notes;
+pub mod permissions_check;
 pub mod smf;
 pub mod state_poller;
 
@@ -50,6 +51,9 @@ pub use cache::{
     TrackState, TransportState,
 };
 pub use executor::LogicExecutor;
+pub use permissions_check::{
+    PermissionsSnapshot, open_accessibility_settings, open_automation_settings,
+};
 
 #[cfg(target_os = "macos")]
 pub use bridge::{ensure_running, should_delegate};

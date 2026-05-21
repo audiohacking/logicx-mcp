@@ -35,6 +35,9 @@ pub fn build_editor(params: Arc<LogicxMcpParams>) -> Box<dyn truce_core::Editor>
                 model: String::new(),
                 event_rx: None,
                 conn_rx: None,
+                permissions: None,
+                permissions_checking: false,
+                perm_rx: None,
             },
         )
         .with_visuals(truce_egui::theme::dark())
@@ -60,6 +63,9 @@ struct ChatEditor {
     model: String,
     event_rx: Option<Receiver<UiAgentEvent>>,
     conn_rx: Option<Receiver<logicx_core::OllamaConnectionReport>>,
+    permissions: Option<logicx_control::PermissionsSnapshot>,
+    permissions_checking: bool,
+    perm_rx: Option<Receiver<logicx_control::PermissionsSnapshot>>,
 }
 
 impl EditorUi<LogicxMcpParams> for ChatEditor {
@@ -77,11 +83,7 @@ impl EditorUi<LogicxMcpParams> for ChatEditor {
         self.connection_summary = "Checking Ollama…".into();
         self.schedule_connection_check();
         #[cfg(target_os = "macos")]
-        if logicx_core::runtime::hosted_in_daw() {
-            thread::spawn(|| {
-                let _ = logicx_control::bridge::reconcile_bridge();
-            });
-        }
+        self.schedule_permissions_check(true);
     }
 
     fn state_changed(&mut self, ctx: &PluginContext<LogicxMcpParams>) {
@@ -96,9 +98,11 @@ impl EditorUi<LogicxMcpParams> for ChatEditor {
     fn ui(&mut self, ctx: &egui::Context, _state: &PluginContext<LogicxMcpParams>) {
         self.poll_connection_check();
         self.poll_agent_events();
+        self.poll_permissions_check();
 
         let connection_summary = self.connection_summary.clone();
         let ollama_status = self.ollama_status.clone();
+        let show_permissions = self.show_permissions_onboarding();
         let (dot_color, dot_label) = match ollama_status.as_str() {
             "connected" => (egui::Color32::from_rgb(80, 220, 120), "●"),
             "disconnected" => (egui::Color32::from_rgb(240, 90, 90), "●"),
@@ -152,6 +156,10 @@ impl EditorUi<LogicxMcpParams> for ChatEditor {
                     });
                 });
             });
+
+        if show_permissions {
+            self.draw_permissions_panel(ctx);
+        }
 
         if self.settings_open {
             egui::TopBottomPanel::top("settings")
@@ -314,11 +322,156 @@ impl EditorUi<LogicxMcpParams> for ChatEditor {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         } else if self.ollama_status == "checking" {
             ctx.request_repaint_after(std::time::Duration::from_millis(200));
+        } else if show_permissions {
+            ctx.request_repaint_after(std::time::Duration::from_secs(2));
+            if self.perm_rx.is_none() {
+                self.schedule_permissions_check(false);
+            }
         }
     }
 }
 
 impl ChatEditor {
+    #[cfg(target_os = "macos")]
+    fn show_permissions_onboarding(&self) -> bool {
+        if self.permissions_checking && self.permissions.is_none() {
+            return true;
+        }
+        self.permissions
+            .as_ref()
+            .map(|p| p.show_onboarding())
+            .unwrap_or(false)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn show_permissions_onboarding(&self) -> bool {
+        false
+    }
+
+    #[cfg(target_os = "macos")]
+    fn draw_permissions_panel(&mut self, ctx: &egui::Context) {
+        let accent = egui::Color32::from_rgb(240, 180, 90);
+        egui::TopBottomPanel::top("permissions")
+            .min_height(120.0)
+            .max_height(220.0)
+            .frame(
+                egui::Frame::NONE
+                    .fill(egui::Color32::from_rgb(38, 32, 24))
+                    .inner_margin(10.0),
+            )
+            .show(ctx, |ui| {
+                ui.label(
+                    egui::RichText::new("Logic control needs macOS permissions")
+                        .strong()
+                        .color(accent),
+                );
+                ui.add_space(4.0);
+
+                if self.permissions_checking && self.permissions.is_none() {
+                    ui.label("Checking permissions and starting control bridge…");
+                    return;
+                }
+
+                let Some(perms) = self.permissions.clone() else {
+                    ui.label("Permission check failed — use Check again.");
+                    if ui.button("Check again").clicked() {
+                        self.schedule_permissions_check(true);
+                    }
+                    return;
+                };
+
+                ui.label(format!(
+                    "Enable permissions for \"{}\" (not logicx-control-bridge).",
+                    perms.permission_subject
+                ));
+
+                if !perms.companion_app_installed {
+                    ui.label(
+                        egui::RichText::new(
+                            "LogicX MCP.app is not installed. Run ./scripts/install-au.sh or the .pkg installer.",
+                        )
+                        .color(egui::Color32::from_rgb(240, 140, 140)),
+                    );
+                }
+
+                if let Some(err) = &perms.error {
+                    ui.label(
+                        egui::RichText::new(err)
+                            .small()
+                            .color(egui::Color32::from_rgb(240, 140, 140)),
+                    );
+                }
+
+                permission_row(ui, "Control bridge running", perms.bridge_running);
+                permission_row(
+                    ui,
+                    "Accessibility (required for tempo & transport)",
+                    perms.accessibility,
+                );
+                permission_row(
+                    ui,
+                    "Automation → Logic Pro (optional, tracks & MIDI)",
+                    perms.automation_logic_pro,
+                );
+                permission_row(
+                    ui,
+                    "Automation → System Events (optional, menu fallbacks)",
+                    perms.automation_system_events,
+                );
+
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Open Accessibility").clicked() {
+                        logicx_control::open_accessibility_settings();
+                    }
+                    if ui.button("Open Automation").clicked() {
+                        logicx_control::open_automation_settings();
+                    }
+                    if ui.button("Check again").clicked() {
+                        self.schedule_permissions_check(true);
+                    }
+                });
+            });
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn draw_permissions_panel(&mut self, _ctx: &egui::Context) {}
+
+    #[cfg(target_os = "macos")]
+    fn schedule_permissions_check(&mut self, reconcile_bridge: bool) {
+        if self.perm_rx.is_some() {
+            return;
+        }
+        self.permissions_checking = true;
+        let (tx, rx) = mpsc::channel();
+        self.perm_rx = Some(rx);
+        thread::spawn(move || {
+            let snap = if reconcile_bridge {
+                logicx_control::permissions_check::snapshot()
+            } else {
+                logicx_control::permissions_check::refresh()
+            };
+            let _ = tx.send(snap);
+        });
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn schedule_permissions_check(&mut self, _reconcile_bridge: bool) {}
+
+    fn poll_permissions_check(&mut self) {
+        let snaps: Vec<_> = if let Some(rx) = &self.perm_rx {
+            rx.try_iter().collect()
+        } else {
+            return;
+        };
+
+        for snap in snaps {
+            self.permissions = Some(snap);
+            self.permissions_checking = false;
+            self.perm_rx = None;
+        }
+    }
+
     fn hydrate_from_binding(&mut self) {
         let st = self.binding.get();
         let defaults = AgentSettings::default_local();
@@ -537,6 +690,19 @@ fn preview(text: &str, max: usize) -> String {
     } else {
         format!("{}…", text.chars().take(max).collect::<String>())
     }
+}
+
+#[cfg(target_os = "macos")]
+fn permission_row(ui: &mut egui::Ui, label: &str, ok: bool) {
+    let (mark, color) = if ok {
+        ("✓", egui::Color32::from_rgb(80, 220, 120))
+    } else {
+        ("○", egui::Color32::from_rgb(240, 140, 140))
+    };
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new(mark).color(color).monospace());
+        ui.label(label);
+    });
 }
 
 fn summarize_tool_args_for_display(tool: &str, args: &serde_json::Value) -> String {

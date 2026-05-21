@@ -237,6 +237,7 @@ fn track_set_automation_rejects_invalid_mode() {
 #[test]
 fn record_sequence_blocked_without_open_project() {
     let ex = logicx_control::LogicExecutor::new();
+    ex.cache().set_document_open(false);
     let raw = ex
         .execute_local(&ToolInvocation {
             name: "logic_tracks".into(),

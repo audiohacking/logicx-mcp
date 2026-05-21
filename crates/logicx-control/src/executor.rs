@@ -526,7 +526,7 @@ impl LogicExecutor {
     fn record_sequence(&self, params: &Value) -> HonestResult {
         #[cfg(target_os = "macos")]
         {
-            if !logicx_core::targets_current_logic_project() && !crate::macos::has_open_project() {
+            if !logicx_core::targets_current_logic_project() && !self.cache.has_document_open() {
                 return HonestResult::failed("No Logic project open");
             }
             channel_result_to_honest(AxChannel::record_sequence(&json_params(params)))
