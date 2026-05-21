@@ -29,7 +29,7 @@ logicx-mcp/
 │   └── ARCHITECTURE.md       ← design notes
 └── .github/workflows/
     ├── ci.yml                ← PR / main CI
-    └── release.yml           ← tag v* → GitHub Release artifacts
+    └── release.yml           ← GitHub Release publish/edit → build + upload artefacts
 ```
 
 ## Architecture (short)
@@ -130,7 +130,7 @@ Canonical example user request: *"Make a 4-bar techno loop in A minor at 140 BPM
 ## CI / release (for agents)
 
 - **PR CI** (`.github/workflows/ci.yml`): `fmt`, `clippy`, `test` on `macos-14`. No signing secrets required.
-- **Release** (`.github/workflows/release.yml`): triggered on `v*` tags. Builds AU v2 + standalone via `scripts/build-installer-pkg.sh` (ad-hoc sign) and uploads zip + `.pkg` to GitHub Releases. **No signing secrets required.**
+- **Release** (`.github/workflows/release.yml`): triggered when a GitHub Release is **published** or **edited**. Builds AU v2 + standalone via `scripts/build-installer-pkg.sh` (ad-hoc sign) and uploads zip + `.pkg` to that release. **No signing secrets required.**
 
 Installer pattern matches [audiohacking/aitroce-vst](https://github.com/audiohacking/aitroce-vst) (`scripts/build-installer-pkg.sh`).
 

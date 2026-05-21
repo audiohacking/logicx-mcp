@@ -1,33 +1,18 @@
 name: Release
 
-# Tag push v* → GitHub Release with AU v2 + standalone zip + .pkg installer (macOS).
+# Runs when a GitHub Release is published or updated — builds and uploads AU + .pkg assets.
 
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types: [published, edited]
 
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
 
 jobs:
-  create-release:
-    name: Create release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
-
   build-macos:
     name: macOS release artefacts
-    needs: create-release
     runs-on: macos-14
     permissions:
       contents: write
@@ -37,6 +22,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -87,7 +74,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ver="${{ steps.version.outputs.pkg }}"
-          tag="${{ github.ref_name }}"
+          tag="${{ github.event.release.tag_name }}"
           gh release upload "$tag" \
             "release-artefacts/logicx-mcp-${ver}-macos-au-standalone.zip" \
             "release-artefacts/LogicX-MCP-macOS-Installer.pkg" \
