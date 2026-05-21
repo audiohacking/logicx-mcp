@@ -19,16 +19,29 @@ pub enum ExecuteError {
     Other(String),
 }
 
+use std::sync::Arc;
+
+static SHARED_CACHE: once_cell::sync::Lazy<Arc<StateCache>> = once_cell::sync::Lazy::new(|| {
+    let cache = Arc::new(StateCache::new());
+    crate::state_poller::register_cache(Arc::clone(&cache));
+    cache
+});
+
 /// Routes tool invocations through the 7-channel router (logic-pro-mcp parity).
 pub struct LogicExecutor {
-    cache: StateCache,
+    cache: Arc<StateCache>,
 }
 
 impl LogicExecutor {
     pub fn new() -> Self {
         Self {
-            cache: StateCache::new(),
+            cache: Arc::clone(&SHARED_CACHE),
         }
+    }
+
+    /// Start background AX supplementary polling (idempotent).
+    pub fn warm_poller() {
+        crate::state_poller::ensure_started();
     }
 
     pub fn cache(&self) -> &StateCache {
@@ -36,6 +49,7 @@ impl LogicExecutor {
     }
 
     pub fn execute(&self, tool: &ToolInvocation) -> Result<String, ExecuteError> {
+        Self::warm_poller();
         #[cfg(target_os = "macos")]
         if crate::bridge::should_delegate() {
             return match catch_unwind(AssertUnwindSafe(|| crate::bridge::execute_remote(tool))) {
@@ -80,7 +94,13 @@ impl LogicExecutor {
         router.ensure_started();
         let params = normalize_params(operation, params);
         let result = router.route(operation, params);
-        channel_result_to_honest(result)
+        let honest = channel_result_to_honest(result);
+        if operation == "library.scan_all" && honest.success {
+            if let Some(detail) = &honest.detail {
+                self.cache.set_library_inventory(detail.clone());
+            }
+        }
+        honest
     }
 
     fn route_midi(&self, command: &str, params: &Value) -> HonestResult {

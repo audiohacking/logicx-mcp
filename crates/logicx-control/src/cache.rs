@@ -78,6 +78,8 @@ struct CacheData {
     transport_state: TransportState,
     poll_mode: String,
     document_open: bool,
+    ax_occluded: bool,
+    library_inventory: Value,
 }
 
 impl Default for CacheData {
@@ -97,6 +99,8 @@ impl Default for CacheData {
             transport_state: TransportState::default(),
             poll_mode: "idle".into(),
             document_open: false,
+            ax_occluded: false,
+            library_inventory: Value::Null,
         }
     }
 }
@@ -133,12 +137,51 @@ impl StateCache {
     }
 
     pub fn update_document_state(&self, open: bool) {
+        self.set_document_open(open);
+    }
+
+    pub fn set_document_open(&self, open: bool) {
         let mut guard = self.inner.write().expect("cache lock");
         guard.document_open = open;
     }
 
     pub fn has_document_open(&self) -> bool {
         self.inner.read().expect("cache lock").document_open
+    }
+
+    pub fn set_ax_occluded(&self, occluded: bool) {
+        let mut guard = self.inner.write().expect("cache lock");
+        guard.ax_occluded = occluded;
+    }
+
+    pub fn ax_occluded(&self) -> bool {
+        self.inner.read().expect("cache lock").ax_occluded
+    }
+
+    pub fn replace_tracks(&self, tracks: Vec<TrackState>) {
+        let mut guard = self.inner.write().expect("cache lock");
+        guard.tracks_vec = tracks.clone();
+        guard.tracks = json!({ "tracks": tracks });
+    }
+
+    pub fn replace_channel_strips(&self, strips: Vec<ChannelStripState>) {
+        let mut guard = self.inner.write().expect("cache lock");
+        guard.strips = strips
+            .iter()
+            .map(|s| (s.track_index, s.clone()))
+            .collect();
+        guard.mixer = json!({ "source": "poller", "strips": strips });
+    }
+
+    pub fn clear_markers(&self) {
+        let mut guard = self.inner.write().expect("cache lock");
+        guard.markers_vec.clear();
+        guard.markers = json!({ "markers": [] });
+    }
+
+    pub fn set_library_inventory(&self, inventory: Value) {
+        let mut guard = self.inner.write().expect("cache lock");
+        guard.library_inventory = inventory;
     }
 
     pub fn update_track<F: FnOnce(&mut TrackState)>(&self, index: i32, f: F) {
@@ -369,6 +412,10 @@ impl StateCache {
                 })
             }
             "logic://library/inventory" => {
+                let inv = guard.library_inventory.clone();
+                if !inv.is_null() {
+                    return inv;
+                }
                 #[cfg(target_os = "macos")]
                 {
                     return crate::macos::get_tracks()
@@ -378,7 +425,13 @@ impl StateCache {
                 #[cfg(not(target_os = "macos"))]
                 json!({ "status": "macOS only" })
             }
-            _ => json!({ "uri": uri, "status": "not_cached" }),
+            _ => {
+                let mut out = json!({ "uri": uri, "status": "not_cached" });
+                if guard.ax_occluded {
+                    out["ax_occluded"] = json!(true);
+                }
+                out
+            }
         }
     }
 }

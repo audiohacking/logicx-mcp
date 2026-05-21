@@ -2,6 +2,41 @@ use crate::channels::{ChannelHealth, ChannelResult, Params};
 use crate::macos;
 use crate::notes;
 use crate::smf;
+use serde_json::json;
+
+fn mixer_state_from_mcu() -> ChannelResult {
+    let cache = crate::midi::mcu_state::McuStateCache::global();
+    if !cache.is_feedback_fresh(5) {
+        return ChannelResult::Success {
+            message: "ok".into(),
+            verified: Some(false),
+            reason: Some("mcu_feedback_stale".into()),
+            detail: Some(json!({ "strips": [] })),
+        };
+    }
+    let summary = cache.summary();
+    let strips: Vec<_> = summary
+        .get("strips")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| {
+                    Some(json!({
+                        "trackIndex": v.get("index")?.as_u64()?,
+                        "volume": v.get("volume").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                        "pan": v.get("pan").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                    }))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    ChannelResult::Success {
+        message: "ok".into(),
+        verified: Some(true),
+        reason: None,
+        detail: Some(json!({ "strips": strips })),
+    }
+}
 
 pub struct AxChannel;
 
@@ -154,6 +189,8 @@ impl AxChannel {
             }
             "region.get_regions" => macos::get_regions().into(),
             "track.get_tracks" => macos::get_tracks().into(),
+            "transport.get_state" => macos::read_transport_state().into(),
+            "mixer.get_state" => mixer_state_from_mcu(),
             _ => ChannelResult::err(format!("Unsupported AX operation: {operation}")),
         }
     }

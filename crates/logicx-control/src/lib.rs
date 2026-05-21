@@ -2,6 +2,7 @@ mod approvals;
 pub mod bridge;
 mod cache;
 pub mod channels;
+pub mod state_poller;
 mod executor;
 mod macos;
 pub mod midi;

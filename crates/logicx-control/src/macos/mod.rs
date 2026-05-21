@@ -16,9 +16,10 @@ pub use permissions::{
     prime_automation_prompts,
 };
 pub use project::{front_project_name, has_open_project};
-pub use transport::{transport_goto_bar, transport_play, transport_set_tempo, transport_stop};
+pub use transport::{read_transport_state, transport_goto_bar, transport_play, transport_set_tempo, transport_stop};
 pub use tracks::{create_audio_track, create_instrument_track};
 
+pub use ax_native::dialog_present;
 pub use ax_ops::{
     arm_only, create_drummer_track, create_external_midi_track, delete_track, get_markers,
     get_regions, get_tracks, project_info, rename_marker, rename_track, resolve_library_path,

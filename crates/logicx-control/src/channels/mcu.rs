@@ -1,6 +1,7 @@
 use crate::channels::{ChannelHealth, ChannelResult, Params};
 use crate::midi::engine::MidiEngine;
 use crate::midi::{mcu_protocol::{self, TransportCommand}, mcu_state};
+use serde_json::json;
 use std::sync::Arc;
 
 pub const PORT_NAME: &str = crate::midi::mcu_protocol::PORT_NAME;
@@ -169,8 +170,61 @@ impl McuChannel {
             "mixer.set_plugin_param" => {
                 ChannelResult::err("mixer.set_plugin_param requires Scripter channel")
             }
+            "transport.get_state" => transport_state_from_mcu(),
+            "mixer.get_state" => mixer_state_from_mcu(),
             _ => ChannelResult::err(format!("Unknown MCU operation: {operation}")),
         }
+    }
+}
+
+fn transport_state_from_mcu() -> ChannelResult {
+    let cache = mcu_state::McuStateCache::global();
+    let summary = cache.summary();
+    let transport = summary.get("transport").cloned().unwrap_or(json!({}));
+    ChannelResult::Success {
+        message: "ok".into(),
+        verified: Some(cache.is_feedback_fresh(5)),
+        reason: if cache.is_feedback_fresh(5) {
+            None
+        } else {
+            Some("mcu_feedback_stale".into())
+        },
+        detail: Some(json!({
+            "isPlaying": transport.get("play").and_then(|v| v.as_bool()).unwrap_or(false),
+            "isRecording": transport.get("record").and_then(|v| v.as_bool()).unwrap_or(false),
+            "tempo": 120.0,
+            "position": "1.1.1.1",
+        })),
+    }
+}
+
+fn mixer_state_from_mcu() -> ChannelResult {
+    let cache = mcu_state::McuStateCache::global();
+    let summary = cache.summary();
+    let strips: Vec<_> = summary
+        .get("strips")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| {
+                    Some(json!({
+                        "trackIndex": v.get("index")?.as_u64()?,
+                        "volume": v.get("volume").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                        "pan": v.get("pan").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                    }))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    ChannelResult::Success {
+        message: "ok".into(),
+        verified: Some(cache.is_feedback_fresh(5)),
+        reason: if cache.is_feedback_fresh(5) {
+            None
+        } else {
+            Some("mcu_feedback_stale".into())
+        },
+        detail: Some(json!({ "strips": strips })),
     }
 }
 

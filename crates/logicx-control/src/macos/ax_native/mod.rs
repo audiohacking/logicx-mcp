@@ -43,10 +43,19 @@ pub fn transport_stop() -> Option<HonestResult> {
     guard(|| transport::transport_stop())
 }
 
+pub fn read_transport_state() -> Option<HonestResult> {
+    guard(|| transport::read_transport_state())
+}
+
 pub fn toggle_checkbox(
     titles: &[&str],
     want_on: Option<bool>,
     via: &str,
 ) -> Option<HonestResult> {
     guard(|| transport::toggle_checkbox(titles, want_on, via))
+}
+
+/// True when a modal dialog/sheet occludes the arrange window (StatePoller parity).
+pub fn dialog_present() -> bool {
+    core::dialog_present()
 }

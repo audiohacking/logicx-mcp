@@ -429,6 +429,73 @@ fn transport_set_tempo_rejects_out_of_range() {
     assert_eq!(v["success"], false);
 }
 
+#[test]
+fn track_solo_requires_explicit_index() {
+    let ex = logicx_control::LogicExecutor::new();
+    let raw = ex
+        .execute_local(&ToolInvocation {
+            name: "logic_tracks".into(),
+            arguments: json!({"command": "solo", "params": {"enabled": true}}),
+        })
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(v["success"], false);
+}
+
+#[test]
+fn mixer_set_plugin_param_requires_all_keys() {
+    let ex = logicx_control::LogicExecutor::new();
+    let raw = ex
+        .execute_local(&ToolInvocation {
+            name: "logic_mixer".into(),
+            arguments: json!({"command": "set_plugin_param", "params": {"track": 0}}),
+        })
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(v["success"], false);
+    assert!(v["error"].as_str().unwrap_or("").contains("insert"));
+}
+
+#[test]
+fn track_mute_rejects_index_out_of_range() {
+    let ex = logicx_control::LogicExecutor::new();
+    let raw = ex
+        .execute_local(&ToolInvocation {
+            name: "logic_tracks".into(),
+            arguments: json!({"command": "mute", "params": {"index": 1000, "enabled": true}}),
+        })
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(v["success"], false);
+    assert!(v["error"].as_str().unwrap_or("").contains("out of range"));
+}
+
+#[test]
+fn state_poller_refresh_updates_shared_cache() {
+    use logicx_control::{ProjectInfo, StateCache};
+    use logicx_control::state_poller::{MockAxPollSource, StatePoller};
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    let cache = Arc::new(StateCache::new());
+    let source = Arc::new(MockAxPollSource {
+        has_window: true,
+        dialog: false,
+        project: Some(ProjectInfo {
+            name: "Poller Cache".into(),
+            track_count: 4,
+        }),
+        tracks: None,
+        transport: None,
+        strips: None,
+        markers: None,
+    });
+    let poller = StatePoller::new(Arc::clone(&cache), source, Duration::from_millis(1));
+    poller.refresh_now();
+    assert_eq!(cache.get_project().name, "Poller Cache");
+    assert!(cache.has_document_open());
+}
+
 // --- Routing audit invariants (adapted from RoutingAuditInvariantTests) ---
 
 #[test]

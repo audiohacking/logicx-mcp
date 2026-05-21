@@ -287,3 +287,28 @@ pub fn bar_slider_description(desc: &str) -> bool {
     let d = desc.to_lowercase();
     (d.contains("bar") || d.contains("마디")) && !d.contains("tempo") && !d.contains("bpm")
 }
+
+/// Scan for modal AX dialogs occluding the arrange surface.
+pub fn dialog_present() -> bool {
+    unsafe {
+        let Some(app) = logic_app() else {
+            return false;
+        };
+        let Some(windows) = copy_attr_array(app.get(), "AXWindows") else {
+            return false;
+        };
+        for i in 0..windows.len() {
+            let Some(window) = windows.get(i) else {
+                continue;
+            };
+            let w = window.as_concrete_TypeRef() as AxRef;
+            if let Some(role) = ax_role(w) {
+                let r = role.to_lowercase();
+                if r.contains("dialog") || r.contains("sheet") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}

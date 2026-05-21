@@ -93,28 +93,29 @@ AU v2 builds with **ad-hoc signing** (`-`) — no Developer ID or Xcode required
 
 ## Channel porting status
 
-Reference: [MongLong0214/logic-pro-mcp](https://github.com/MongLong0214/logic-pro-mcp) (~90 routed ops, native Swift AX, MCU feedback).
+Reference: [MongLong0214/logic-pro-mcp](https://github.com/MongLong0214/logic-pro-mcp) (~105 routed ops, native Swift AX, MCU feedback).
 
 | Area | Status |
 |------|--------|
-| 8-tool MCP contract + routing table | Done (subset of ops wired in channels) |
+| 8-tool MCP contract + routing table | Done (~105 ops) |
 | CoreMIDI + MMC + SMF `record_sequence` | Done |
-| MCU encode (mixer/transport) | Done — **feedback/poller pending** |
-| Accessibility (tracks, library, import) | Done via AppleScript/AX scripts |
+| MCU encode + bidirectional feedback cache | Done |
+| Accessibility (tracks, library, import) | Done via native AX + AppleScript |
 | CGEvent fallbacks + `set_tempo` | Done |
-| AppleScript project lifecycle | Done |
+| AppleScript project lifecycle + State B HC wrap | Done |
 | AU control bridge (companion app) | Done — logic-pro-mcp process model |
-| MIDIKeyCommands (true CC path) | Partial — delegates to CGEvent |
+| MIDIKeyCommands (true CC on ch 16) | Done — approval gate + ~50 ops |
+| StatePoller + `logic://` resource cache | Done — background AX supplementary poll |
+| Operator approval gates | Done — KeyCmd + Scripter |
 | Scripter CC bridge | Stub |
-| Native Swift AX / StatePoller | Not started |
-| Operator approval gates | Not started |
+| Injectable AX test harness (FakeAXRuntime) | Not started |
+| Full reference Swift test matrix (~99 files) | Partial — consolidated in `logic_pro_mcp_parity.rs` |
 
-Port order for parity:
+Port order for remaining parity:
 
-1. MCU bidirectional feedback + transport/mixer state cache
-2. Native AX helpers (or bridge-only parity via companion app)
-3. Scripter + KeyCmd approval workflow
-4. Resource reads (`logic://transport/state`, etc.) backed by cache
+1. Scripter CC bridge + plugin-param routing
+2. Injectable AX/CGEvent runtime for offline channel tests
+3. Expand live E2E coverage (`scripts/test-live.sh --ignored`)
 
 ## System prompt
 

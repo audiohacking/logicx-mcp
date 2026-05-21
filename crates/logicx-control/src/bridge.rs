@@ -79,6 +79,7 @@ mod macos_impl {
 
     pub fn run_server() {
         crate::macos::prime_automation_prompts();
+        crate::LogicExecutor::warm_poller();
 
         let dir = logicx_core::control_bridge::support_dir();
         let _ = fs::create_dir_all(&dir);

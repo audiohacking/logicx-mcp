@@ -119,6 +119,47 @@ pub fn transport_stop() -> Option<HonestResult> {
     toggle_transport_checkbox(&["Play", "재생"], false, "ax_stop")
 }
 
+/// Read transport LEDs and control-bar sliders for supplementary polling.
+pub fn read_transport_state() -> Option<HonestResult> {
+    unsafe {
+        let app = logic_app()?;
+        let is_playing = find_checkbox(app.get(), &["Play", "재생"])
+            .and_then(|cb| {
+                let on = ax_value_f64(cb).map(|v| v >= 0.5).unwrap_or(false);
+                release(cb as CFTypeRef);
+                Some(on)
+            })
+            .unwrap_or(false);
+        let is_recording = find_checkbox(app.get(), &["Record", "녹음"])
+            .and_then(|cb| {
+                let on = ax_value_f64(cb).map(|v| v >= 0.5).unwrap_or(false);
+                release(cb as CFTypeRef);
+                Some(on)
+            })
+            .unwrap_or(false);
+        let position = find_bar_slider(app.get())
+            .and_then(|slider| {
+                let bar = ax_value_f64(slider).map(|v| format!("{}.1.1.1", v.max(1.0) as u32));
+                release(slider as CFTypeRef);
+                bar
+            })
+            .unwrap_or_else(|| "1.1.1.1".into());
+        let tempo = super::tempo::read_tempo_value(app.get()).unwrap_or(120.0);
+        Some(HonestResult {
+            success: true,
+            verified: Some(true),
+            reason: None,
+            error: None,
+            detail: Some(serde_json::json!({
+                "isPlaying": is_playing,
+                "isRecording": is_recording,
+                "tempo": tempo,
+                "position": position,
+            })),
+        })
+    }
+}
+
 pub fn toggle_checkbox(
     titles: &[&str],
     want_on: Option<bool>,

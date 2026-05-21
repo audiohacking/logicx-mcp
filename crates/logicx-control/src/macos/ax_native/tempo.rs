@@ -95,7 +95,7 @@ unsafe fn find_tempo_slider(app: AxRef) -> Option<AxRef> {
     })
 }
 
-fn read_tempo_value(app: AxRef) -> Option<f64> {
+pub(crate) fn read_tempo_value(app: AxRef) -> Option<f64> {
     unsafe {
         find_tempo_slider(app).and_then(|slider| {
             let v = ax_value_f64(slider);

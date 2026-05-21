@@ -383,3 +383,21 @@ return gotoSlider()
         run_osascript_output(&slider_script),
     )
 }
+
+pub fn read_transport_state() -> HonestResult {
+    if is_ax_trusted() {
+        if let Some(result) = crate::macos::ax_native::read_transport_state() {
+            return result;
+        }
+    }
+    HonestResult {
+        success: false,
+        verified: None,
+        reason: Some("ax_unavailable".into()),
+        error: Some(format!(
+            "transport.get_state requires Accessibility for {}",
+            logicx_core::runtime::automation_settings_app_name()
+        )),
+        detail: None,
+    }
+}
