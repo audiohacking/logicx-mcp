@@ -56,7 +56,10 @@ pub fn check_ollama_connection(settings: &AgentSettings, build_id: &str) -> Olla
                 );
             }
         } else {
-            log(&mut debug, "bridge: not running (starts automatically on first control tool call)");
+            log(
+                &mut debug,
+                "bridge: not running (starts automatically on first control tool call)",
+            );
         }
     }
 
@@ -75,10 +78,7 @@ pub fn check_ollama_connection(settings: &AgentSettings, build_id: &str) -> Olla
         }
         Ok(o) => log(
             &mut debug,
-            format!(
-                "curl_version_failed exit={}",
-                o.status.code().unwrap_or(-1)
-            ),
+            format!("curl_version_failed exit={}", o.status.code().unwrap_or(-1)),
         ),
         Err(e) => log(&mut debug, format!("curl_spawn_failed: {e}")),
     }
@@ -135,9 +135,7 @@ pub fn check_ollama_connection_with_events(
 
     let report = check_ollama_connection(&settings, &build_id);
     for line in &report.debug {
-        let _ = events.send(logicx_core::UiAgentEvent::Debug {
-            line: line.clone(),
-        });
+        let _ = events.send(logicx_core::UiAgentEvent::Debug { line: line.clone() });
     }
     let _ = events.send(logicx_core::UiAgentEvent::Connection { report });
 }

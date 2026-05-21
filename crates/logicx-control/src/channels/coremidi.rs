@@ -1,5 +1,8 @@
 use crate::channels::{ChannelHealth, ChannelId, ChannelResult, Params};
-use crate::midi::{engine::MidiEngine, engine::list_midi_ports, engine::midi_channel_param, engine::midi_data7, mmc};
+use crate::midi::{
+    engine::MidiEngine, engine::list_midi_ports, engine::midi_channel_param, engine::midi_data7,
+    mmc,
+};
 use crate::notes;
 use std::sync::Arc;
 use std::thread;
@@ -86,7 +89,9 @@ impl CoreMidiChannel {
                         mmc::FrameRate::Fps30,
                     ) {
                         Ok(b) => b,
-                        Err(e) => return ChannelResult::err(format!("mmc locate validation: {e:?}")),
+                        Err(e) => {
+                            return ChannelResult::err(format!("mmc locate validation: {e:?}"));
+                        }
                     };
                     send_sysex(&self.engine, &bytes);
                     return ChannelResult::ok(format!(
@@ -94,9 +99,10 @@ impl CoreMidiChannel {
                         smpte.hours, smpte.minutes, smpte.seconds, smpte.frames
                     ));
                 }
-                let time = params.get("time").map(String::as_str).or_else(|| {
-                    params.get("position").map(String::as_str)
-                });
+                let time = params
+                    .get("time")
+                    .map(String::as_str)
+                    .or_else(|| params.get("position").map(String::as_str));
                 let Some(time) = time else {
                     return ChannelResult::err("mmc.locate requires time HH:MM:SS:FF or bar");
                 };
@@ -122,12 +128,17 @@ impl CoreMidiChannel {
             "midi.send_sysex" => self.send_sysex_param(params),
             "midi.play_sequence" => self.play_sequence(params),
             "midi.step_input" => self.step_input(params),
-            "midi.list_ports" => {
-                ChannelResult::ok(serde_json::to_string(&list_midi_ports()).unwrap_or_else(|_| "{}".into()))
-            }
+            "midi.list_ports" => ChannelResult::ok(
+                serde_json::to_string(&list_midi_ports()).unwrap_or_else(|_| "{}".into()),
+            ),
             "midi.create_virtual_port" => {
-                let name = params.get("name").cloned().unwrap_or_else(|| PORT_NAME.into());
-                ChannelResult::ok(format!("Virtual port '{name}' managed by LogicX MCP engine"))
+                let name = params
+                    .get("name")
+                    .cloned()
+                    .unwrap_or_else(|| PORT_NAME.into());
+                ChannelResult::ok(format!(
+                    "Virtual port '{name}' managed by LogicX MCP engine"
+                ))
             }
             "midi.get_input_state" => ChannelResult::ok("{\"active\":true}"),
             _ => ChannelResult::err(format!("Unknown CoreMIDI operation: {operation}")),
@@ -152,7 +163,9 @@ impl CoreMidiChannel {
         }
         thread::sleep(Duration::from_millis(duration_ms));
         let _ = engine.send_note_off(channel, note);
-        ChannelResult::ok(format!("Note {note} ch {channel} vel {velocity} dur {duration_ms}ms"))
+        ChannelResult::ok(format!(
+            "Note {note} ch {channel} vel {velocity} dur {duration_ms}ms"
+        ))
     }
 
     fn send_chord(&self, params: &Params) -> ChannelResult {
@@ -284,9 +297,7 @@ impl CoreMidiChannel {
                 thread::sleep(target - start.elapsed());
             }
             let ch = ev.channel.saturating_sub(1) & 0x0F;
-            let _ = self
-                .engine
-                .send_note_on(ch, ev.pitch, ev.velocity);
+            let _ = self.engine.send_note_on(ch, ev.pitch, ev.velocity);
             let engine = Arc::clone(&self.engine);
             let pitch = ev.pitch;
             let dur = ev.duration_ms;

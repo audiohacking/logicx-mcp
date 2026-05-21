@@ -1,14 +1,20 @@
-use crate::macos::{honest_from_script, is_ax_trusted, map_script_error, run_osascript_output, sleep_ms};
+use crate::macos::{
+    honest_from_script, is_ax_trusted, map_script_error, run_osascript_output, sleep_ms,
+};
 use logicx_core::HonestResult;
 
 pub fn run_ax_script(kind: &str) -> HonestResult {
     let _ = run_osascript_output(r#"tell application "Logic Pro" to activate"#);
     sleep_ms(200);
 
-    if is_ax_trusted() {
-        if let Some(result) = run_ax_script_native(kind) {
-            return result;
-        }
+    if let Some(result) = crate::macos::run_ax_script_hook(kind) {
+        return result;
+    }
+
+    if is_ax_trusted()
+        && let Some(result) = run_ax_script_native(kind)
+    {
+        return result;
     }
 
     run_ax_script_system_events(kind)
@@ -29,18 +35,17 @@ fn run_ax_script_native(kind: &str) -> Option<HonestResult> {
             None,
             "ax_toggle_count_in",
         ),
-        "record" => crate::macos::ax_native::toggle_checkbox(
-            &["Record", "녹음"],
-            Some(true),
-            "ax_record",
-        ),
+        "record" => {
+            crate::macos::ax_native::toggle_checkbox(&["Record", "녹음"], Some(true), "ax_record")
+        }
         _ => None,
     }
 }
 
 fn run_ax_script_system_events(kind: &str) -> HonestResult {
     let script = match kind {
-        "toggle_cycle" => r#"
+        "toggle_cycle" => {
+            r#"
 tell application "Logic Pro" to activate
 tell application "System Events" to tell process "Logic Pro"
     try
@@ -50,8 +55,10 @@ tell application "System Events" to tell process "Logic Pro"
     end try
 end tell
 return "OK"
-"#,
-        "toggle_metronome" => r#"
+"#
+        }
+        "toggle_metronome" => {
+            r#"
 tell application "Logic Pro" to activate
 tell application "System Events" to tell process "Logic Pro"
     try
@@ -61,8 +68,10 @@ tell application "System Events" to tell process "Logic Pro"
     end try
 end tell
 return "OK"
-"#,
-        "toggle_count_in" => r#"
+"#
+        }
+        "toggle_count_in" => {
+            r#"
 tell application "Logic Pro" to activate
 tell application "System Events" to tell process "Logic Pro"
     try
@@ -72,8 +81,10 @@ tell application "System Events" to tell process "Logic Pro"
     end try
 end tell
 return "OK"
-"#,
-        "record" => r#"
+"#
+        }
+        "record" => {
+            r#"
 tell application "Logic Pro" to activate
 tell application "System Events" to tell process "Logic Pro"
     try
@@ -84,7 +95,8 @@ tell application "System Events" to tell process "Logic Pro"
     end try
 end tell
 return "OK"
-"#,
+"#
+        }
         _ => return HonestResult::failed(format!("unknown ax script: {kind}")),
     };
     honest_from_script(
@@ -98,10 +110,10 @@ pub fn set_cycle_range(start: u32, end: u32) -> HonestResult {
     let _ = run_osascript_output(r#"tell application "Logic Pro" to activate"#);
     sleep_ms(250);
 
-    if is_ax_trusted() {
-        if let Some(result) = crate::macos::ax_native::set_cycle_range(start, end) {
-            return result;
-        }
+    if is_ax_trusted()
+        && let Some(result) = crate::macos::ax_native::set_cycle_range(start, end)
+    {
+        return result;
     }
 
     set_cycle_range_system_events(start, end)
@@ -185,7 +197,11 @@ tell application "System Events"
 end tell
 return "OK"
 "#;
-    honest_from_script("track.delete", "delete track menu", run_osascript_output(script))
+    honest_from_script(
+        "track.delete",
+        "delete track menu",
+        run_osascript_output(script),
+    )
 }
 
 pub fn select_track(index: &str) -> HonestResult {
@@ -206,7 +222,11 @@ tell application "System Events"
 end tell
 "#
     );
-    honest_from_script("track.select", "select track header", run_osascript_output(&script))
+    honest_from_script(
+        "track.select",
+        "select track header",
+        run_osascript_output(&script),
+    )
 }
 
 pub fn rename_track(index: &str, name: &str) -> HonestResult {
@@ -233,7 +253,11 @@ tell application "System Events"
 end tell
 "#
     );
-    honest_from_script("track.rename", "rename track", run_osascript_output(&script))
+    honest_from_script(
+        "track.rename",
+        "rename track",
+        run_osascript_output(&script),
+    )
 }
 
 pub fn set_track_toggle(index: &str, kind: &str, enabled: bool) -> HonestResult {
@@ -348,7 +372,9 @@ pub fn get_markers() -> HonestResult {
         verified: Some(true),
         reason: None,
         error: None,
-        detail: Some(serde_json::json!({ "markers": [], "note": "Open Marker List window for Logic 12.2+" })),
+        detail: Some(
+            serde_json::json!({ "markers": [], "note": "Open Marker List window for Logic 12.2+" }),
+        ),
     }
 }
 
@@ -384,7 +410,11 @@ tell application "System Events"
 end tell
 "#
     );
-    honest_from_script("nav.rename_marker", "rename marker via list", run_osascript_output(&script))
+    honest_from_script(
+        "nav.rename_marker",
+        "rename marker via list",
+        run_osascript_output(&script),
+    )
 }
 
 pub fn project_info() -> HonestResult {
@@ -429,7 +459,11 @@ end tell
 return "OK"
 "#
     );
-    honest_from_script("project.save_as", "save as dialog", run_osascript_output(&script))
+    honest_from_script(
+        "project.save_as",
+        "save as dialog",
+        run_osascript_output(&script),
+    )
 }
 
 pub fn get_regions() -> HonestResult {

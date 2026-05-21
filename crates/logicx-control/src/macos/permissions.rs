@@ -30,9 +30,7 @@ pub fn prime_automation_prompts() {
         return;
     }
     if !automation_system_events_ok() {
-        let _ = run_osascript_output(
-            r#"tell application "System Events" to return "LogicX MCP""#,
-        );
+        let _ = run_osascript_output(r#"tell application "System Events" to return "LogicX MCP""#);
     }
     if !automation_logic_ok() {
         let _ = run_osascript_output(r#"tell application id "com.apple.logic10" to return name"#);

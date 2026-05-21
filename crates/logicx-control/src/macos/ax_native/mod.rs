@@ -8,7 +8,9 @@ mod transport;
 use logicx_core::HonestResult;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
-pub use menu::{click_dialog_button, create_software_instrument_track, open_import_midi_file_dialog};
+pub use menu::{
+    click_dialog_button, create_software_instrument_track, open_import_midi_file_dialog,
+};
 
 fn guard<F>(f: F) -> Option<HonestResult>
 where
@@ -36,22 +38,18 @@ pub fn set_cycle_range(start: u32, end: u32) -> Option<HonestResult> {
 }
 
 pub fn transport_play() -> Option<HonestResult> {
-    guard(|| transport::transport_play())
+    guard(transport::transport_play)
 }
 
 pub fn transport_stop() -> Option<HonestResult> {
-    guard(|| transport::transport_stop())
+    guard(transport::transport_stop)
 }
 
 pub fn read_transport_state() -> Option<HonestResult> {
-    guard(|| transport::read_transport_state())
+    guard(transport::read_transport_state)
 }
 
-pub fn toggle_checkbox(
-    titles: &[&str],
-    want_on: Option<bool>,
-    via: &str,
-) -> Option<HonestResult> {
+pub fn toggle_checkbox(titles: &[&str], want_on: Option<bool>, via: &str) -> Option<HonestResult> {
     guard(|| transport::toggle_checkbox(titles, want_on, via))
 }
 

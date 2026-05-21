@@ -1,7 +1,9 @@
 //! CGEvent mouse/keyboard at screen coordinates (logic-pro-mcp AXMouseHelper parity).
 //! Uses HID event tap — required for Logic tempo slider double-click + type entry.
 
-use core_graphics::event::{CGEvent, CGEventFlags, CGEventTapLocation, CGEventType, CGKeyCode, CGMouseButton};
+use core_graphics::event::{
+    CGEvent, CGEventFlags, CGEventTapLocation, CGEventType, CGKeyCode, CGMouseButton,
+};
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use core_graphics::geometry::CGPoint;
 use std::ffi::c_void;
@@ -152,12 +154,8 @@ pub fn press_escape() {
 }
 
 fn post_mouse(event_type: CGEventType, at: CGPoint, click_count: i64, source: &CGEventSource) {
-    if let Ok(event) = CGEvent::new_mouse_event(
-        source.clone(),
-        event_type,
-        at,
-        CGMouseButton::Left,
-    ) {
+    if let Ok(event) = CGEvent::new_mouse_event(source.clone(), event_type, at, CGMouseButton::Left)
+    {
         event.set_integer_value_field(
             core_graphics::event::EventField::MOUSE_EVENT_CLICK_STATE,
             click_count,

@@ -1,4 +1,4 @@
-use crate::macos::{run_osascript_output, sleep_ms, is_ax_trusted};
+use crate::macos::{is_ax_trusted, run_osascript_output, sleep_ms};
 use logicx_core::HonestResult;
 
 fn create_track(korean: &str, english: &str) -> HonestResult {
@@ -32,9 +32,7 @@ return createTrack()
         Ok(out) if out.status.starts_with("OK") => {
             sleep_ms(400);
             // Confirm "New Track" dialog if it appears (Logic 12).
-            let _ = run_osascript_output(
-                r#"tell application "System Events" to key code 36"#,
-            );
+            let _ = run_osascript_output(r#"tell application "System Events" to key code 36"#);
             sleep_ms(800);
             HonestResult {
                 success: true,
@@ -57,12 +55,15 @@ return createTrack()
 pub fn create_instrument_track() -> HonestResult {
     let _ = run_osascript_output(r#"tell application "Logic Pro" to activate"#);
     sleep_ms(250);
-    if is_ax_trusted() {
-        if let Some(result) = crate::macos::ax_native::create_software_instrument_track() {
-            return result;
-        }
+    if is_ax_trusted()
+        && let Some(result) = crate::macos::ax_native::create_software_instrument_track()
+    {
+        return result;
     }
-    create_track("새로운 소프트웨어 악기 트랙", "New Software Instrument Track")
+    create_track(
+        "새로운 소프트웨어 악기 트랙",
+        "New Software Instrument Track",
+    )
 }
 
 pub fn create_audio_track() -> HonestResult {

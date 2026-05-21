@@ -1,5 +1,5 @@
-use crate::ollama::{ChatRequest, OllamaClient, OllamaMessage};
 use crate::connection::check_ollama_connection_with_events;
+use crate::ollama::{ChatRequest, OllamaClient, OllamaMessage};
 use logicx_control::LogicExecutor;
 use logicx_core::{
     AgentSettings, ChatMessage, ChatRole, SYSTEM_PROMPT, ToolInvocation, UiAgentEvent,
@@ -99,7 +99,7 @@ pub fn run_agent(
                     Ok(Ok(json)) => json,
                     Ok(Err(e)) => format!("{{\"success\":false,\"error\":\"{e}\"}}"),
                     Err(_) => {
-                        logicx_core::diagnostic_log::append_plugin_log(&format!(
+                        logicx_core::diagnostic_log::append_plugin_log(format!(
                             "tool PANIC: {name}"
                         ));
                         "{\"success\":false,\"error\":\"tool handler panicked (see plugin.log)\"}"

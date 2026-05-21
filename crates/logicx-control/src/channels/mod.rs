@@ -108,6 +108,13 @@ impl ChannelResult {
         Self::Error(msg.into())
     }
 
+    /// Terminal State C envelope for ops not in the production contract.
+    pub fn not_implemented(operation: &str) -> Self {
+        Self::Error(format!(
+            r#"{{"success":false,"error":"not_implemented","operation":"{operation}"}}"#
+        ))
+    }
+
     pub fn is_success(&self) -> bool {
         matches!(self, Self::Success { .. })
     }
@@ -169,38 +176,34 @@ pub fn req_param_err<'a>(
 }
 
 pub fn normalize_params(operation: &str, mut params: Params) -> Params {
-    if !params.contains_key("index") {
-        if let Some(track) = params.remove("track") {
-            params.insert("index".into(), track);
-        }
+    if !params.contains_key("index")
+        && let Some(track) = params.remove("track")
+    {
+        params.insert("index".into(), track);
     }
     if matches!(
         operation,
         "track.set_mute" | "track.set_solo" | "track.set_arm"
     ) && !params.contains_key("enabled")
+        && let Some(v) = params.remove("value")
     {
-        if let Some(v) = params.remove("value") {
-            params.insert("enabled".into(), v);
-        }
+        params.insert("enabled".into(), v);
     }
-    if operation == "transport.set_tempo" {
-        if let Some(t) = params.remove("tempo") {
-            params.insert("bpm".into(), t);
-        }
+    if operation == "transport.set_tempo"
+        && let Some(t) = params.remove("tempo")
+    {
+        params.insert("bpm".into(), t);
     }
-    if operation == "transport.goto_position" {
-        if let Some(bar) = params.remove("bar") {
-            params.insert("position".into(), format!("{bar}.1.1.1"));
-        }
+    if operation == "transport.goto_position"
+        && let Some(bar) = params.remove("bar")
+    {
+        params.insert("position".into(), format!("{bar}.1.1.1"));
     }
     params
 }
 
 pub fn param_bool(params: &Value, key: &str, default: bool) -> bool {
-    params
-        .get(key)
-        .and_then(|v| v.as_bool())
-        .unwrap_or(default)
+    params.get(key).and_then(|v| v.as_bool()).unwrap_or(default)
 }
 
 #[cfg(test)]
@@ -212,12 +215,12 @@ mod normalize_tests {
         let p = Params::from([("track".to_string(), "3".to_string())]);
         let out = normalize_params("track.set_mute", p);
         assert_eq!(out.get("index").map(String::as_str), Some("3"));
-        assert!(out.get("track").is_none());
+        assert!(!out.contains_key("track"));
     }
 
     #[test]
     fn mute_value_alias_becomes_enabled() {
-        let mut p = Params::from([("value".to_string(), "true".to_string())]);
+        let p = Params::from([("value".to_string(), "true".to_string())]);
         let out = normalize_params("track.set_mute", p);
         assert_eq!(out.get("enabled").map(String::as_str), Some("true"));
     }

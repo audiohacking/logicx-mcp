@@ -31,8 +31,8 @@ impl MidiEngine {
         if guard.is_some() {
             return Ok(());
         }
-        let midi_out =
-            midir::MidiOutput::new("LogicX MCP").map_err(|e| MidiEngineError::Init(e.to_string()))?;
+        let midi_out = midir::MidiOutput::new("LogicX MCP")
+            .map_err(|e| MidiEngineError::Init(e.to_string()))?;
         let conn = midi_out
             .create_virtual(&self.port_name)
             .map_err(|e| MidiEngineError::Init(e.to_string()))?;
@@ -41,10 +41,7 @@ impl MidiEngine {
     }
 
     pub fn is_active(&self) -> bool {
-        self.connection
-            .lock()
-            .ok()
-            .is_some_and(|g| g.is_some())
+        self.connection.lock().ok().is_some_and(|g| g.is_some())
     }
 
     pub fn send_bytes(&self, bytes: &[u8]) -> Result<(), MidiEngineError> {

@@ -52,10 +52,10 @@ impl OllamaClient {
         };
         let json = serde_json::to_string(&body).map_err(|e| OllamaError::Parse(e.to_string()))?;
         let text = http_post(&url, &json)?;
-        if let Ok(err) = serde_json::from_str::<OllamaErrorBody>(&text) {
-            if let Some(msg) = err.error {
-                return Err(OllamaError::Api(msg));
-            }
+        if let Ok(err) = serde_json::from_str::<OllamaErrorBody>(&text)
+            && let Some(msg) = err.error
+        {
+            return Err(OllamaError::Api(msg));
         }
         serde_json::from_str(&text).map_err(|e| OllamaError::Parse(format!("{e}: {text}")))
     }

@@ -23,5 +23,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "allow"
+dead_code = "allow"
+unused_imports = "allow"
+
 [profile.shell]
 inherits = "release"

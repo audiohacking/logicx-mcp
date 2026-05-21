@@ -39,7 +39,10 @@ impl ButtonFunction {
     fn is_strip_relative(self) -> bool {
         matches!(
             self,
-            ButtonFunction::RecArm | ButtonFunction::Solo | ButtonFunction::Mute | ButtonFunction::Select
+            ButtonFunction::RecArm
+                | ButtonFunction::Solo
+                | ButtonFunction::Mute
+                | ButtonFunction::Select
         )
     }
 }
@@ -60,13 +63,13 @@ pub fn encode_pan(track: u8, value: f64) -> [u8; 3] {
 fn encode_vpot(strip: u8, value: f64) -> [u8; 3] {
     let cc = 0x10 + strip.min(7);
     let clamped = value.clamp(0.0, 1.0);
-    let speed = ((clamped * 15.0).round() as u8).max(1).min(15);
+    let speed = ((clamped * 15.0).round() as u8).clamp(1, 15);
     [0xB0, cc, speed]
 }
 
 fn encode_button(function: ButtonFunction, strip: u8, on: bool) -> [u8; 3] {
     let note = match function {
-        ButtonFunction::RecArm => 0x00 + strip.min(7),
+        ButtonFunction::RecArm => strip.min(7),
         ButtonFunction::Solo => 0x08 + strip.min(7),
         ButtonFunction::Mute => 0x10 + strip.min(7),
         ButtonFunction::Select => 0x18 + strip.min(7),
@@ -278,6 +281,36 @@ pub fn is_valid_sysex(data: &[u8]) -> bool {
     data[1..data.len() - 1].iter().all(|b| *b <= 0x7F)
 }
 
+pub fn decode_button_note(note: u8) -> Option<(ButtonFunction, u8)> {
+    if note <= 0x07 {
+        return Some((ButtonFunction::RecArm, note));
+    }
+    if (0x08..=0x0F).contains(&note) {
+        return Some((ButtonFunction::Solo, note - 0x08));
+    }
+    if (0x10..=0x17).contains(&note) {
+        return Some((ButtonFunction::Mute, note - 0x10));
+    }
+    if (0x18..=0x1F).contains(&note) {
+        return Some((ButtonFunction::Select, note - 0x18));
+    }
+    match note {
+        0x4A => Some((ButtonFunction::AutomationRead, 0)),
+        0x4B => Some((ButtonFunction::AutomationWrite, 0)),
+        0x4C => Some((ButtonFunction::AutomationTrim, 0)),
+        0x4D => Some((ButtonFunction::AutomationTouch, 0)),
+        0x4E => Some((ButtonFunction::AutomationLatch, 0)),
+        0x56 => Some((ButtonFunction::Cycle, 0)),
+        0x59 => Some((ButtonFunction::Click, 0)),
+        0x5B => Some((ButtonFunction::Rewind, 0)),
+        0x5C => Some((ButtonFunction::FastForward, 0)),
+        0x5D => Some((ButtonFunction::Stop, 0)),
+        0x5E => Some((ButtonFunction::Play, 0)),
+        0x5F => Some((ButtonFunction::Record, 0)),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -383,9 +416,8 @@ mod tests {
 
     #[test]
     fn parse_device_response_variants() {
-        let ok = parse_device_response(&[
-            0xF0, 0x00, 0x00, 0x66, 0x14, 0x01, 0x42, 0x00, 0x01, 0xF7,
-        ]);
+        let ok =
+            parse_device_response(&[0xF0, 0x00, 0x00, 0x66, 0x14, 0x01, 0x42, 0x00, 0x01, 0xF7]);
         assert_eq!(ok, DeviceResponse::Success(vec![0x42, 0x00, 0x01]));
 
         assert_eq!(parse_device_response(&[]), DeviceResponse::NoResponse);
@@ -413,35 +445,5 @@ mod tests {
         }
         assert!(decode_vpot_led_ring(0x2F, 0x06).is_none());
         assert!(decode_vpot_led_ring(0x38, 0x06).is_none());
-    }
-}
-
-pub fn decode_button_note(note: u8) -> Option<(ButtonFunction, u8)> {
-    if note <= 0x07 {
-        return Some((ButtonFunction::RecArm, note));
-    }
-    if (0x08..=0x0F).contains(&note) {
-        return Some((ButtonFunction::Solo, note - 0x08));
-    }
-    if (0x10..=0x17).contains(&note) {
-        return Some((ButtonFunction::Mute, note - 0x10));
-    }
-    if (0x18..=0x1F).contains(&note) {
-        return Some((ButtonFunction::Select, note - 0x18));
-    }
-    match note {
-        0x4A => Some((ButtonFunction::AutomationRead, 0)),
-        0x4B => Some((ButtonFunction::AutomationWrite, 0)),
-        0x4C => Some((ButtonFunction::AutomationTrim, 0)),
-        0x4D => Some((ButtonFunction::AutomationTouch, 0)),
-        0x4E => Some((ButtonFunction::AutomationLatch, 0)),
-        0x56 => Some((ButtonFunction::Cycle, 0)),
-        0x59 => Some((ButtonFunction::Click, 0)),
-        0x5B => Some((ButtonFunction::Rewind, 0)),
-        0x5C => Some((ButtonFunction::FastForward, 0)),
-        0x5D => Some((ButtonFunction::Stop, 0)),
-        0x5E => Some((ButtonFunction::Play, 0)),
-        0x5F => Some((ButtonFunction::Record, 0)),
-        _ => None,
     }
 }

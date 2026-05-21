@@ -124,12 +124,8 @@ impl StateCache {
                 "source": "mcu_feedback",
                 "strips": mcu.summary().get("strips").cloned().unwrap_or(json!([])),
             });
-            guard.tracks = crate::macos::get_tracks()
-                .detail
-                .unwrap_or(json!({}));
-            guard.project = crate::macos::project_info()
-                .detail
-                .unwrap_or(json!({}));
+            guard.tracks = crate::macos::get_tracks().detail.unwrap_or(json!({}));
+            guard.project = crate::macos::project_info().detail.unwrap_or(json!({}));
             guard.markers = crate::macos::get_markers()
                 .detail
                 .unwrap_or(json!({ "markers": [] }));
@@ -166,10 +162,7 @@ impl StateCache {
 
     pub fn replace_channel_strips(&self, strips: Vec<ChannelStripState>) {
         let mut guard = self.inner.write().expect("cache lock");
-        guard.strips = strips
-            .iter()
-            .map(|s| (s.track_index, s.clone()))
-            .collect();
+        guard.strips = strips.iter().map(|s| (s.track_index, s.clone())).collect();
         guard.mixer = json!({ "source": "poller", "strips": strips });
     }
 
@@ -242,11 +235,7 @@ impl StateCache {
             return;
         }
         let mut guard = self.inner.write().expect("cache lock");
-        guard
-            .strips
-            .entry(strip as u32)
-            .or_default()
-            .track_index = strip as u32;
+        guard.strips.entry(strip as u32).or_default().track_index = strip as u32;
         guard.strips.get_mut(&(strip as u32)).unwrap().volume = volume;
     }
 
@@ -316,7 +305,11 @@ impl StateCache {
     }
 
     pub fn get_transport(&self) -> TransportState {
-        self.inner.read().expect("cache lock").transport_state.clone()
+        self.inner
+            .read()
+            .expect("cache lock")
+            .transport_state
+            .clone()
     }
 
     pub fn clear_project_state(&self) {
@@ -418,9 +411,9 @@ impl StateCache {
                 }
                 #[cfg(target_os = "macos")]
                 {
-                    return crate::macos::get_tracks()
+                    crate::macos::get_tracks()
                         .detail
-                        .unwrap_or_else(|| json!({ "status": "scan_library first" }));
+                        .unwrap_or_else(|| json!({ "status": "scan_library first" }))
                 }
                 #[cfg(not(target_os = "macos"))]
                 json!({ "status": "macOS only" })

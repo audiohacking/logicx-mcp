@@ -166,9 +166,7 @@ impl KeyCmdChannel {
                     .get("channel")
                     .and_then(|s| s.parse::<u8>().ok())
                     .unwrap_or(0);
-                let Some(controller) = params
-                    .get("controller")
-                    .and_then(|s| s.parse::<u8>().ok())
+                let Some(controller) = params.get("controller").and_then(|s| s.parse::<u8>().ok())
                 else {
                     return ChannelResult::err("requires controller");
                 };

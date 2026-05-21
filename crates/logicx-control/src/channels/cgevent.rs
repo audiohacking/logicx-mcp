@@ -1,8 +1,8 @@
 use crate::channels::{ChannelHealth, ChannelResult, Params};
 use crate::macos;
 use core_graphics::event::{CGEvent, CGEventFlags, CGKeyCode};
-use once_cell::sync::Lazy;
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
+use once_cell::sync::Lazy;
 use std::process::Command;
 
 struct Shortcut {
@@ -222,7 +222,9 @@ fn set_tempo_cg(tempo: f64, pid: i32) -> logicx_core::HonestResult {
     std::thread::sleep(std::time::Duration::from_millis(150));
 
     if !post_key(&Shortcut::cmd_option(17), pid) {
-        return logicx_core::HonestResult::failed("Failed to open Tempo settings (Option+Command+T)");
+        return logicx_core::HonestResult::failed(
+            "Failed to open Tempo settings (Option+Command+T)",
+        );
     }
     std::thread::sleep(std::time::Duration::from_millis(700));
 

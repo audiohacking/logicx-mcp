@@ -1,6 +1,8 @@
 //! Background AX supplementary poller (logic-pro-mcp StatePoller parity).
 
-use crate::cache::{ChannelStripState, MarkerState, ProjectInfo, StateCache, TrackState, TransportState};
+use crate::cache::{
+    ChannelStripState, MarkerState, ProjectInfo, StateCache, TrackState, TransportState,
+};
 use crate::channels::{AxChannel, ChannelResult, Params};
 use parking_lot::Mutex;
 use serde_json::Value;
@@ -275,7 +277,11 @@ fn poll_once(cache: &StateCache, source: &dyn AxPollSource, counters: &mut Polle
 fn project_from_result(result: ChannelResult) -> Option<ProjectInfo> {
     let detail = success_detail(result)?;
     Some(ProjectInfo {
-        name: detail.get("name").and_then(|v| v.as_str()).unwrap_or("").into(),
+        name: detail
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .into(),
         track_count: detail
             .get("track_count")
             .or_else(|| detail.get("trackCount"))
@@ -286,21 +292,25 @@ fn project_from_result(result: ChannelResult) -> Option<ProjectInfo> {
 
 fn tracks_from_result(result: ChannelResult) -> Option<Vec<TrackState>> {
     let detail = success_detail(result)?;
-    let arr = detail.as_array().or_else(|| detail.get("tracks").and_then(|v| v.as_array()))?;
+    let arr = detail
+        .as_array()
+        .or_else(|| detail.get("tracks").and_then(|v| v.as_array()))?;
     Some(
         arr.iter()
-            .filter_map(|v| {
-                Some(TrackState {
-                    id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
-                    name: v.get("name").and_then(|x| x.as_str()).unwrap_or("").into(),
-                    is_selected: v.get("is_selected").or_else(|| v.get("isSelected")).and_then(|x| x.as_bool()).unwrap_or(false),
-                    automation_mode: v
-                        .get("automation_mode")
-                        .or_else(|| v.get("automationMode"))
-                        .and_then(|x| x.as_str())
-                        .unwrap_or("off")
-                        .into(),
-                })
+            .map(|v| TrackState {
+                id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
+                name: v.get("name").and_then(|x| x.as_str()).unwrap_or("").into(),
+                is_selected: v
+                    .get("is_selected")
+                    .or_else(|| v.get("isSelected"))
+                    .and_then(|x| x.as_bool())
+                    .unwrap_or(false),
+                automation_mode: v
+                    .get("automation_mode")
+                    .or_else(|| v.get("automationMode"))
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("off")
+                    .into(),
             })
             .collect(),
     )
@@ -309,9 +319,20 @@ fn tracks_from_result(result: ChannelResult) -> Option<Vec<TrackState>> {
 fn transport_from_result(result: ChannelResult) -> Option<TransportState> {
     let detail = success_detail(result)?;
     Some(TransportState {
-        is_playing: detail.get("is_playing").or_else(|| detail.get("isPlaying")).and_then(|v| v.as_bool()).unwrap_or(false),
-        is_recording: detail.get("is_recording").or_else(|| detail.get("isRecording")).and_then(|v| v.as_bool()).unwrap_or(false),
-        tempo: detail.get("tempo").and_then(|v| v.as_f64()).unwrap_or(120.0),
+        is_playing: detail
+            .get("is_playing")
+            .or_else(|| detail.get("isPlaying"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        is_recording: detail
+            .get("is_recording")
+            .or_else(|| detail.get("isRecording"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        tempo: detail
+            .get("tempo")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(120.0),
         position: detail
             .get("position")
             .and_then(|v| v.as_str())
@@ -323,20 +344,20 @@ fn transport_from_result(result: ChannelResult) -> Option<TransportState> {
 
 fn strips_from_result(result: ChannelResult) -> Option<Vec<ChannelStripState>> {
     let detail = success_detail(result)?;
-    let arr = detail.as_array().or_else(|| detail.get("strips").and_then(|v| v.as_array()))?;
+    let arr = detail
+        .as_array()
+        .or_else(|| detail.get("strips").and_then(|v| v.as_array()))?;
     Some(
         arr.iter()
-            .filter_map(|v| {
-                Some(ChannelStripState {
-                    track_index: v
-                        .get("track_index")
-                        .or_else(|| v.get("trackIndex"))
-                        .or_else(|| v.get("index"))
-                        .and_then(|x| x.as_u64())
-                        .unwrap_or(0) as u32,
-                    volume: v.get("volume").and_then(|x| x.as_f64()).unwrap_or(0.0),
-                    pan: v.get("pan").and_then(|x| x.as_f64()).unwrap_or(0.0),
-                })
+            .map(|v| ChannelStripState {
+                track_index: v
+                    .get("track_index")
+                    .or_else(|| v.get("trackIndex"))
+                    .or_else(|| v.get("index"))
+                    .and_then(|x| x.as_u64())
+                    .unwrap_or(0) as u32,
+                volume: v.get("volume").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                pan: v.get("pan").and_then(|x| x.as_f64()).unwrap_or(0.0),
             })
             .collect(),
     )
@@ -349,12 +370,14 @@ fn markers_from_result(result: ChannelResult) -> Option<Vec<MarkerState>> {
         .or_else(|| detail.get("markers").and_then(|v| v.as_array()))?;
     Some(
         arr.iter()
-            .filter_map(|v| {
-                Some(MarkerState {
-                    id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
-                    name: v.get("name").and_then(|x| x.as_str()).unwrap_or("").into(),
-                    position: v.get("position").and_then(|x| x.as_str()).unwrap_or("1.1.1.1").into(),
-                })
+            .map(|v| MarkerState {
+                id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
+                name: v.get("name").and_then(|x| x.as_str()).unwrap_or("").into(),
+                position: v
+                    .get("position")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("1.1.1.1")
+                    .into(),
             })
             .collect(),
     )
@@ -362,7 +385,9 @@ fn markers_from_result(result: ChannelResult) -> Option<Vec<MarkerState>> {
 
 fn success_detail(result: ChannelResult) -> Option<Value> {
     match result {
-        ChannelResult::Success { detail: Some(v), .. } => Some(v),
+        ChannelResult::Success {
+            detail: Some(v), ..
+        } => Some(v),
         ChannelResult::Success { message, .. } => serde_json::from_str(&message).ok(),
         _ => None,
     }

@@ -113,7 +113,10 @@ fn router_all_operations_have_channel() {
     ];
     for (op, channels) in table.iter() {
         if no_channel_ok.contains(op) {
-            assert!(channels.is_empty(), "operation '{op}' should have empty chain");
+            assert!(
+                channels.is_empty(),
+                "operation '{op}' should have empty chain"
+            );
         } else {
             assert!(
                 !channels.is_empty(),
@@ -137,7 +140,7 @@ fn router_set_plugin_param_goes_to_scripter() {
 
 #[test]
 fn terminal_state_c_json_envelope() {
-    use logicx_core::{encode_state_c, HonestError};
+    use logicx_core::{HonestError, encode_state_c};
     let raw = encode_state_c(HonestError::ElementNotFound, None, None, Default::default());
     assert!(is_terminal_error(&raw));
     assert!(!is_terminal_error("ax_write_failed: focus stolen"));
@@ -147,7 +150,7 @@ fn terminal_state_c_json_envelope() {
 
 #[test]
 fn honest_contract_state_b_echo_timeout() {
-    use logicx_core::{encode_state_b, HonestReason};
+    use logicx_core::{HonestReason, encode_state_b};
     let raw = encode_state_b(HonestReason::EchoTimeoutMs(500), Default::default());
     assert!(raw.contains("echo_timeout_500ms"));
 }
@@ -212,10 +215,7 @@ fn track_delete_requires_explicit_index() {
         .unwrap();
     let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert_eq!(v["success"], false);
-    assert!(v["error"]
-        .as_str()
-        .unwrap_or("")
-        .contains("explicit"));
+    assert!(v["error"].as_str().unwrap_or("").contains("explicit"));
 }
 
 #[test]
@@ -248,10 +248,12 @@ fn record_sequence_blocked_without_open_project() {
         .unwrap();
     let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert_eq!(v["success"], false);
-    assert!(v["error"]
-        .as_str()
-        .unwrap_or("")
-        .contains("No Logic project open"));
+    assert!(
+        v["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("No Logic project open")
+    );
 }
 
 // --- HonestContractTests (shape) ---
@@ -299,10 +301,7 @@ fn project_new_blocked_in_logic_plugin_session() {
     set_in_logic_plugin_session(false);
     let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert_eq!(v["success"], false);
-    assert!(v["reason"]
-        .as_str()
-        .unwrap_or("")
-        .contains("blocked"));
+    assert!(v["reason"].as_str().unwrap_or("").contains("blocked"));
 }
 
 #[test]
@@ -316,10 +315,7 @@ fn project_quit_requires_confirmation_without_session() {
         .unwrap();
     let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert_eq!(v["success"], false);
-    assert!(v["reason"]
-        .as_str()
-        .unwrap_or("")
-        .contains("confirmation"));
+    assert!(v["reason"].as_str().unwrap_or("").contains("confirmation"));
 }
 
 // --- SMFWriterTests (via build_smf_bytes) ---
@@ -397,10 +393,7 @@ fn mixer_set_volume_requires_explicit_track() {
         .unwrap();
     let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert_eq!(v["success"], false);
-    assert!(v["error"]
-        .as_str()
-        .unwrap_or("")
-        .contains("explicit"));
+    assert!(v["error"].as_str().unwrap_or("").contains("explicit"));
 }
 
 #[test]
@@ -472,8 +465,8 @@ fn track_mute_rejects_index_out_of_range() {
 
 #[test]
 fn state_poller_refresh_updates_shared_cache() {
-    use logicx_control::{ProjectInfo, StateCache};
     use logicx_control::state_poller::{MockAxPollSource, StatePoller};
+    use logicx_control::{ProjectInfo, StateCache};
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -494,6 +487,79 @@ fn state_poller_refresh_updates_shared_cache() {
     poller.refresh_now();
     assert_eq!(cache.get_project().name, "Poller Cache");
     assert!(cache.has_document_open());
+}
+
+#[test]
+fn mixer_set_send_returns_not_implemented() {
+    let ex = logicx_control::LogicExecutor::new();
+    let raw = ex
+        .execute_local(&ToolInvocation {
+            name: "logic_mixer".into(),
+            arguments: json!({
+                "command": "set_send",
+                "params": {"track": 0, "send": 1, "value": 0.5}
+            }),
+        })
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(v["success"], false);
+    assert_eq!(v["error"], "not_implemented");
+}
+
+#[test]
+fn mixer_toggle_eq_returns_not_implemented() {
+    let ex = logicx_control::LogicExecutor::new();
+    let raw = ex
+        .execute_local(&ToolInvocation {
+            name: "logic_mixer".into(),
+            arguments: json!({"command": "toggle_eq", "params": {"track": 0}}),
+        })
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(v["success"], false);
+    assert_eq!(v["error"], "not_implemented");
+}
+
+#[test]
+fn scripter_set_plugin_param_requires_approval() {
+    let ex = logicx_control::LogicExecutor::new();
+    let raw = ex
+        .execute_local(&ToolInvocation {
+            name: "logic_mixer".into(),
+            arguments: json!({
+                "command": "set_plugin_param",
+                "params": {"track": 0, "insert": 0, "param": 0, "value": 0.5}
+            }),
+        })
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(v["success"], false);
+    assert!(raw.contains("approval"));
+}
+
+#[test]
+fn fake_ax_runtime_hook_routes_toggle_cycle() {
+    use logicx_control::ax_test::{clear_script_hook, run_ax_script, set_script_hook};
+    use logicx_core::HonestResult;
+    use std::sync::Arc;
+
+    set_script_hook(Arc::new(|kind| {
+        if kind == "toggle_cycle" {
+            Some(HonestResult {
+                success: true,
+                verified: Some(true),
+                reason: None,
+                error: None,
+                detail: Some(serde_json::json!({ "via": "fake_ax" })),
+            })
+        } else {
+            None
+        }
+    }));
+    let result = run_ax_script("toggle_cycle");
+    clear_script_hook();
+    assert!(result.success);
+    assert_eq!(result.detail.unwrap()["via"], "fake_ax");
 }
 
 // --- Routing audit invariants (adapted from RoutingAuditInvariantTests) ---
@@ -534,7 +600,10 @@ fn system_ops_have_empty_routing_chains() {
         "project.is_running",
     ] {
         assert!(
-            routing_table().get(op).map(|c| c.is_empty()).unwrap_or(false),
+            routing_table()
+                .get(op)
+                .map(|c| c.is_empty())
+                .unwrap_or(false),
             "{op} should have empty chain"
         );
     }
@@ -542,7 +611,11 @@ fn system_ops_have_empty_routing_chains() {
 
 #[test]
 fn mcu_only_ops_have_no_fallback() {
-    for op in ["mixer.set_volume", "mixer.set_pan", "mixer.set_master_volume"] {
+    for op in [
+        "mixer.set_volume",
+        "mixer.set_pan",
+        "mixer.set_master_volume",
+    ] {
         let chain = routing_table().get(op).unwrap();
         assert_eq!(chain.len(), 1);
         assert_eq!(chain[0].as_str(), "mcu");
@@ -628,7 +701,10 @@ fn keycmd_only_ops_are_in_mapping_table() {
         .filter(|op| !mapping_table().contains_key(*op))
         .copied()
         .collect();
-    assert!(missing.is_empty(), "keycmd-only ops missing from mapping: {missing:?}");
+    assert!(
+        missing.is_empty(),
+        "keycmd-only ops missing from mapping: {missing:?}"
+    );
 }
 
 #[test]
@@ -639,7 +715,10 @@ fn mapping_table_ops_are_all_routed() {
         .filter(|op| !routing_table().contains_key(*op))
         .copied()
         .collect();
-    assert!(unrouted.is_empty(), "mappingTable ops not routed: {unrouted:?}");
+    assert!(
+        unrouted.is_empty(),
+        "mappingTable ops not routed: {unrouted:?}"
+    );
 }
 
 #[test]
@@ -802,7 +881,7 @@ fn bypass_readiness_set_matches_routing_table() {
 
 #[test]
 fn port_unavailable_is_terminal_state_c() {
-    use logicx_core::{encode_state_c, HonestError, is_terminal_state_c};
+    use logicx_core::{HonestError, encode_state_c, is_terminal_state_c};
     let raw = encode_state_c(
         HonestError::PortUnavailable,
         None,
@@ -852,7 +931,9 @@ fn mmc_locate_bytes_match_reference_layout() {
     use logicx_control::midi::mmc;
     assert_eq!(
         mmc::locate(1, 2, 3, 4, 5),
-        vec![0xF0, 0x7F, 0x7F, 0x06, 0x44, 0x06, 0x01, 1, 2, 3, 4, 5, 0xF7]
+        vec![
+            0xF0, 0x7F, 0x7F, 0x06, 0x44, 0x06, 0x01, 1, 2, 3, 4, 5, 0xF7
+        ]
     );
 }
 
@@ -945,8 +1026,5 @@ fn project_open_requires_confirmation_without_session() {
         .unwrap();
     let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert_eq!(v["success"], false);
-    assert!(v["reason"]
-        .as_str()
-        .unwrap_or("")
-        .contains("confirmation"));
+    assert!(v["reason"].as_str().unwrap_or("").contains("confirmation"));
 }

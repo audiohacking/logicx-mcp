@@ -93,7 +93,10 @@ mod macos_impl {
                 std::process::exit(0);
             }
             Err(e) => {
-                eprintln!("logicx-control-bridge: bind {} failed: {e}", socket.display());
+                eprintln!(
+                    "logicx-control-bridge: bind {} failed: {e}",
+                    socket.display()
+                );
                 std::process::exit(1);
             }
         };
@@ -143,15 +146,15 @@ mod macos_impl {
                 };
                 BridgeResponse::success(status.to_json())
             }
-            Ok(BridgeRequest::Execute { invocation, context }) => {
+            Ok(BridgeRequest::Execute {
+                invocation,
+                context,
+            }) => {
                 let _guard = EXECUTE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
                 logicx_core::diagnostic_log::append_bridge_log(format!(
                     "execute {} {:?}",
                     invocation.name,
-                    invocation
-                        .arguments
-                        .get("command")
-                        .and_then(|v| v.as_str())
+                    invocation.arguments.get("command").and_then(|v| v.as_str())
                 ));
                 logicx_core::session::set_in_logic_plugin_session(context.in_logic_plugin);
                 let result = catch_unwind(AssertUnwindSafe(|| {
@@ -159,7 +162,8 @@ mod macos_impl {
                     executor.execute_local(&invocation)
                 }));
                 logicx_core::session::set_in_logic_plugin_session(false);
-                let response = match result {
+
+                match result {
                     Ok(Ok(json)) => {
                         logicx_core::diagnostic_log::append_bridge_log(format!(
                             "execute ok {} bytes",
@@ -177,15 +181,13 @@ mod macos_impl {
                             "bridge handler panicked during execute (see bridge.log in Application Support/LogicX MCP)".to_string(),
                         )
                     }
-                };
-                response
+                }
             }
             Err(e) => BridgeResponse::failure(format!("invalid request JSON: {e}")),
         };
 
-        let out = serde_json::to_string(&response).unwrap_or_else(|e| {
-            format!(r#"{{"ok":false,"error":"encode error: {e}"}}"#)
-        });
+        let out = serde_json::to_string(&response)
+            .unwrap_or_else(|e| format!(r#"{{"ok":false,"error":"encode error: {e}"}}"#));
         stream.write_all(out.as_bytes())?;
         stream.write_all(b"\n")?;
         stream.flush()?;
@@ -215,7 +217,8 @@ mod macos_impl {
         let line = serde_json::to_string(&req).map_err(|e| e.to_string())?;
         let resp = rpc(&line)?;
         if resp.ok {
-            resp.result.ok_or_else(|| "bridge returned ok without result".into())
+            resp.result
+                .ok_or_else(|| "bridge returned ok without result".into())
         } else {
             Err(resp.error.unwrap_or_else(|| "bridge error".into()))
         }
@@ -229,12 +232,12 @@ mod macos_impl {
     }
 
     pub fn ensure_running() -> Result<(), String> {
-        if let Ok(resp) = rpc_ping() {
-            if resp.ok {
-                let raw = resp.result.unwrap_or_default();
-                if !needs_bridge_restart(&raw) {
-                    return Ok(());
-                }
+        if let Ok(resp) = rpc_ping()
+            && resp.ok
+        {
+            let raw = resp.result.unwrap_or_default();
+            if !needs_bridge_restart(&raw) {
+                return Ok(());
             }
         }
 
@@ -243,10 +246,10 @@ mod macos_impl {
 
         for _ in 0..40 {
             thread::sleep(Duration::from_millis(100));
-            if let Ok(resp) = rpc_ping() {
-                if resp.ok {
-                    return Ok(());
-                }
+            if let Ok(resp) = rpc_ping()
+                && resp.ok
+            {
+                return Ok(());
             }
         }
 
@@ -283,13 +286,13 @@ mod macos_impl {
             }
 
             // Secondary: standalone host with --control-bridge (requires sync_standalone_host in install).
-            if let Some(exe) = logicx_core::runtime::companion_app_bridge_executable() {
-                if exe.is_file() {
-                    let label = format!("{} --control-bridge", exe.display());
-                    tried.push(label);
-                    launch_app_bridge(&exe)?;
-                    return Ok(tried);
-                }
+            if let Some(exe) = logicx_core::runtime::companion_app_bridge_executable()
+                && exe.is_file()
+            {
+                let label = format!("{} --control-bridge", exe.display());
+                tried.push(label);
+                launch_app_bridge(&exe)?;
+                return Ok(tried);
             }
         }
 
@@ -314,7 +317,7 @@ mod macos_impl {
             .append(true)
             .open(&log_path)
             .ok()
-            .map(|f| Stdio::from(f));
+            .map(Stdio::from);
 
         let mut cmd = Command::new(exe);
         cmd.arg("--control-bridge");
@@ -336,7 +339,7 @@ mod macos_impl {
             .append(true)
             .open(&log_path)
             .ok()
-            .map(|f| Stdio::from(f));
+            .map(Stdio::from);
 
         let mut cmd = Command::new(path);
         cmd.stdin(Stdio::null()).stdout(Stdio::null());
@@ -367,10 +370,10 @@ mod macos_impl {
         let mut pids = Vec::new();
         pids.extend(pids_matching("logicx-control-bridge"));
         pids.extend(pids_matching("logicx-mcp-standalone --control-bridge"));
-        if let Ok(pid_str) = fs::read_to_string(logicx_core::control_bridge::pid_path()) {
-            if let Ok(pid) = pid_str.trim().parse::<i32>() {
-                pids.push(pid);
-            }
+        if let Ok(pid_str) = fs::read_to_string(logicx_core::control_bridge::pid_path())
+            && let Ok(pid) = pid_str.trim().parse::<i32>()
+        {
+            pids.push(pid);
         }
         pids.sort_unstable();
         pids.dedup();

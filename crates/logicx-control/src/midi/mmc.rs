@@ -91,8 +91,8 @@ pub fn write() -> Vec<u8> {
 
 pub fn locate(hours: u8, minutes: u8, seconds: u8, frames: u8, subframes: u8) -> Vec<u8> {
     vec![
-        0xF0, 0x7F, DEVICE_ID, 0x06, 0x44, 0x06, 0x01, hours, minutes, seconds, frames,
-        subframes, 0xF7,
+        0xF0, 0x7F, DEVICE_ID, 0x06, 0x44, 0x06, 0x01, hours, minutes, seconds, frames, subframes,
+        0xF7,
     ]
 }
 
@@ -122,8 +122,19 @@ pub fn locate_strict(
     }
     let encoded_hours = hours | frame_rate.encoding();
     Ok(vec![
-        0xF0, 0x7F, DEVICE_ID, 0x06, 0x44, 0x06, 0x01, encoded_hours, minutes, seconds, frames,
-        subframes, 0xF7,
+        0xF0,
+        0x7F,
+        DEVICE_ID,
+        0x06,
+        0x44,
+        0x06,
+        0x01,
+        encoded_hours,
+        minutes,
+        seconds,
+        frames,
+        subframes,
+        0xF7,
     ])
 }
 
@@ -156,7 +167,7 @@ pub fn bar_beat_to_smpte(
     }
     let total_beats = f64::from(bar - 1) * f64::from(beats_per_bar) + (beat - 1.0);
     let total_seconds = total_beats * 60.0 / tempo;
-    if !total_seconds.is_finite() || total_seconds < 0.0 || total_seconds >= 86_400.0 {
+    if !total_seconds.is_finite() || !(0.0..86_400.0).contains(&total_seconds) {
         return None;
     }
     let whole_seconds = total_seconds.floor() as i64;
@@ -210,16 +221,25 @@ mod tests {
     fn play_stop_record_strobe_bytes() {
         assert_eq!(play(), vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x02, 0xF7]);
         assert_eq!(stop(), vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x01, 0xF7]);
-        assert_eq!(record_strobe(), vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x06, 0xF7]);
+        assert_eq!(
+            record_strobe(),
+            vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x06, 0xF7]
+        );
         assert_eq!(record_exit(), vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x07, 0xF7]);
         assert_eq!(pause(), vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x09, 0xF7]);
         assert_eq!(rewind(), vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x05, 0xF7]);
-        assert_eq!(fast_forward(), vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x04, 0xF7]);
+        assert_eq!(
+            fast_forward(),
+            vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x04, 0xF7]
+        );
     }
 
     #[test]
     fn extended_mmc_commands() {
-        assert_eq!(deferred_play(), vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x03, 0xF7]);
+        assert_eq!(
+            deferred_play(),
+            vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x03, 0xF7]
+        );
         assert_eq!(reset(), vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x0D, 0xF7]);
         assert_eq!(write(), vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x40, 0xF7]);
     }
@@ -228,7 +248,9 @@ mod tests {
     fn locate_byte_layout_unchanged() {
         assert_eq!(
             locate(1, 2, 3, 4, 5),
-            vec![0xF0, 0x7F, DEVICE_ID, 0x06, 0x44, 0x06, 0x01, 1, 2, 3, 4, 5, 0xF7]
+            vec![
+                0xF0, 0x7F, DEVICE_ID, 0x06, 0x44, 0x06, 0x01, 1, 2, 3, 4, 5, 0xF7
+            ]
         );
     }
 

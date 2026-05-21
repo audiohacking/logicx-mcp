@@ -65,3 +65,43 @@ fn create_instrument_track() {
     println!("create_instrument: {out}");
     assert!(out.contains("\"success\": true") || out.contains("\"success\":true"));
 }
+
+#[test]
+#[ignore = "requires Logic Pro + permissions"]
+fn refresh_cache_and_read_transport_resource() {
+    let ex = LogicExecutor::new();
+    let refresh = ex
+        .execute(&ToolInvocation {
+            name: "logic_system".into(),
+            arguments: json!({"command": "refresh_cache", "params": {}}),
+        })
+        .unwrap();
+    println!("refresh_cache: {refresh}");
+    assert!(refresh.contains("\"success\": true") || refresh.contains("\"success\":true"));
+
+    let resource = ex
+        .execute(&ToolInvocation {
+            name: "logic_system".into(),
+            arguments: json!({
+                "command": "read_resource",
+                "params": {"uri": "logic://transport/state"}
+            }),
+        })
+        .unwrap();
+    println!("read_resource transport: {resource}");
+    assert!(resource.contains("transport") || resource.contains("\"success\": true"));
+}
+
+#[test]
+#[ignore = "requires Logic Pro + permissions"]
+fn health_reports_scripter_channel() {
+    let ex = LogicExecutor::new();
+    let health = ex
+        .execute(&ToolInvocation {
+            name: "logic_system".into(),
+            arguments: json!({"command": "health", "params": {}}),
+        })
+        .unwrap();
+    println!("health: {health}");
+    assert!(health.contains("scripter"));
+}

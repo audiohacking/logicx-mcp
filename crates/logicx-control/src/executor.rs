@@ -5,8 +5,12 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use thiserror::Error;
 
 use crate::cache::StateCache;
-use crate::channels::{AxChannel, ChannelRouter, channel_result_to_honest, operation_for_tool};
-use crate::channels::{json_params, normalize_params, param_bool, param_f64, param_str, param_u64, Params};
+use crate::channels::{
+    AxChannel, ChannelResult, ChannelRouter, channel_result_to_honest, operation_for_tool,
+};
+use crate::channels::{
+    Params, json_params, normalize_params, param_bool, param_f64, param_str, param_u64,
+};
 use crate::macos;
 
 #[derive(Debug, Error)]
@@ -89,16 +93,20 @@ impl LogicExecutor {
             .unwrap_or_else(|_| format!("{{\"success\":{}}}", result.success)))
     }
 
-    fn route(&self, operation: &str, mut params: Params) -> HonestResult {
+    fn route(&self, operation: &str, params: Params) -> HonestResult {
+        if crate::channels::router::is_not_implemented_op(operation) {
+            return channel_result_to_honest(ChannelResult::not_implemented(operation));
+        }
         let mut router = ChannelRouter::global().lock();
         router.ensure_started();
         let params = normalize_params(operation, params);
         let result = router.route(operation, params);
         let honest = channel_result_to_honest(result);
-        if operation == "library.scan_all" && honest.success {
-            if let Some(detail) = &honest.detail {
-                self.cache.set_library_inventory(detail.clone());
-            }
+        if operation == "library.scan_all"
+            && honest.success
+            && let Some(detail) = &honest.detail
+        {
+            self.cache.set_library_inventory(detail.clone());
         }
         honest
     }
@@ -132,8 +140,13 @@ impl LogicExecutor {
 
         if matches!(
             command,
-            "send_note" | "send_cc" | "send_chord" | "send_program_change" | "send_pitch_bend"
-                | "send_aftertouch" | "play_sequence"
+            "send_note"
+                | "send_cc"
+                | "send_chord"
+                | "send_program_change"
+                | "send_pitch_bend"
+                | "send_aftertouch"
+                | "play_sequence"
         ) {
             let wire = match crate::midi::validate::validate_midi_channel(&flat) {
                 Ok(w) => w,
@@ -207,7 +220,9 @@ impl LogicExecutor {
                     );
                 };
                 match crate::approvals::approve(channel) {
-                    Ok(()) => HonestResult::confirmed(format!("Approved operator channel: {channel}")),
+                    Ok(()) => {
+                        HonestResult::confirmed(format!("Approved operator channel: {channel}"))
+                    }
                     Err(e) => HonestResult::failed(e),
                 }
             }
@@ -411,7 +426,7 @@ impl LogicExecutor {
     }
 
     fn navigate_goto_marker(&self, params: &Value) -> HonestResult {
-        use logicx_core::{encode_state_c, HonestError};
+        use logicx_core::{HonestError, encode_state_c};
         use serde_json::Map;
 
         self.cache.refresh();
@@ -492,8 +507,10 @@ impl LogicExecutor {
         if command == "get_regions" {
             return self.route("region.get_regions", Params::new());
         }
-        let destructive =
-            matches!(command, "open" | "close" | "quit" | "bounce" | "save_as" | "new");
+        let destructive = matches!(
+            command,
+            "open" | "close" | "quit" | "bounce" | "save_as" | "new"
+        );
         if destructive && !param_bool(params, "confirmed", false) {
             return HonestResult {
                 success: false,
@@ -521,33 +538,51 @@ impl LogicExecutor {
         }
     }
 
-    fn validate_fail_closed(&self, tool: &str, command: &str, params: &Value) -> Option<HonestResult> {
+    fn validate_fail_closed(
+        &self,
+        tool: &str,
+        command: &str,
+        params: &Value,
+    ) -> Option<HonestResult> {
         let needs_index = matches!(
             (tool, command),
             (
                 "logic_tracks",
-                "mute" | "solo" | "arm" | "arm_only" | "rename" | "select" | "delete" | "duplicate" | "set_instrument" | "set_automation"
+                "mute"
+                    | "solo"
+                    | "arm"
+                    | "arm_only"
+                    | "rename"
+                    | "select"
+                    | "delete"
+                    | "duplicate"
+                    | "set_instrument"
+                    | "set_automation"
             )
         ) || matches!(
             (tool, command),
-            ("logic_mixer", "set_volume" | "set_pan" | "set_plugin_param" | "set_send" | "toggle_eq")
+            (
+                "logic_mixer",
+                "set_volume" | "set_pan" | "set_plugin_param" | "set_send" | "toggle_eq"
+            )
         ) || matches!(
             (tool, command),
             ("logic_navigate", "delete_marker" | "rename_marker")
         );
         if needs_index {
-            let has_index = param_u64(params, "index").is_some() || param_u64(params, "track").is_some();
+            let has_index =
+                param_u64(params, "index").is_some() || param_u64(params, "track").is_some();
             if !has_index {
                 return Some(HonestResult::failed(format!(
                     "{command} requires explicit index/track (fail-closed)"
                 )));
             }
-            if let Some(idx) = param_u64(params, "index").or_else(|| param_u64(params, "track")) {
-                if idx > 999 {
-                    return Some(HonestResult::failed(format!(
-                        "{command} index out of range"
-                    )));
-                }
+            if let Some(idx) = param_u64(params, "index").or_else(|| param_u64(params, "track"))
+                && idx > 999
+            {
+                return Some(HonestResult::failed(format!(
+                    "{command} index out of range"
+                )));
             }
         }
         if tool == "logic_mixer" && command == "set_plugin_param" {
@@ -559,10 +594,14 @@ impl LogicExecutor {
                 }
             }
         }
-        if tool == "logic_edit" && command == "quantize" {
-            if param_str(params, "value").is_none() && param_str(params, "grid").is_none() {
-                return Some(HonestResult::failed("quantize requires explicit grid value"));
-            }
+        if tool == "logic_edit"
+            && command == "quantize"
+            && param_str(params, "value").is_none()
+            && param_str(params, "grid").is_none()
+        {
+            return Some(HonestResult::failed(
+                "quantize requires explicit grid value",
+            ));
         }
         if tool == "logic_transport" && command == "set_tempo" {
             let tempo = param_f64(params, &["tempo", "bpm"], -1.0);
@@ -570,25 +609,30 @@ impl LogicExecutor {
                 return Some(HonestResult::failed("set_tempo requires tempo 5–999"));
             }
         }
-        if tool == "logic_transport" && command == "set_cycle_range" {
-            if param_u64(params, "start").is_none() || param_u64(params, "end").is_none() {
-                return Some(HonestResult::failed(
-                    "set_cycle_range requires start and end bar",
-                ));
-            }
+        if tool == "logic_transport"
+            && command == "set_cycle_range"
+            && (param_u64(params, "start").is_none() || param_u64(params, "end").is_none())
+        {
+            return Some(HonestResult::failed(
+                "set_cycle_range requires start and end bar",
+            ));
         }
-        if tool == "logic_transport" && matches!(command, "goto_position" | "goto_bar") {
-            if param_u64(params, "bar").is_none()
-                && param_str(params, "position").is_none()
-                && param_str(params, "time").is_none()
-            {
-                return Some(HonestResult::failed("goto_position requires bar or position"));
-            }
+        if tool == "logic_transport"
+            && matches!(command, "goto_position" | "goto_bar")
+            && param_u64(params, "bar").is_none()
+            && param_str(params, "position").is_none()
+            && param_str(params, "time").is_none()
+        {
+            return Some(HonestResult::failed(
+                "goto_position requires bar or position",
+            ));
         }
         if tool == "logic_navigate" && command == "rename_marker" {
             let name = param_str(params, "name").unwrap_or("");
             if name.is_empty() {
-                return Some(HonestResult::failed("rename_marker requires non-empty name"));
+                return Some(HonestResult::failed(
+                    "rename_marker requires non-empty name",
+                ));
             }
         }
         if tool == "logic_tracks" && command == "set_automation" {
@@ -612,7 +656,10 @@ impl Default for LogicExecutor {
 }
 
 fn params_map(pairs: &[(&str, String)]) -> Params {
-    pairs.iter().map(|(k, v)| (k.to_string(), v.clone())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.clone()))
+        .collect()
 }
 #[cfg(test)]
 mod tests {

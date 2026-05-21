@@ -1,8 +1,8 @@
 //! Control-bar tempo slider via native AX + HID typing.
 
 use super::core::*;
-use core_foundation::base::CFTypeRef;
 use crate::macos::cg_input;
+use core_foundation::base::CFTypeRef;
 use core_graphics::geometry::CGPoint;
 use logicx_core::HonestResult;
 use std::thread;
@@ -22,20 +22,20 @@ pub fn set_tempo(tempo: f64) -> Option<HonestResult> {
         type_into_slider(slider, &tempo_str);
         thread::sleep(Duration::from_millis(150));
 
-        if let Some(observed) = read_tempo_value(app.get()) {
-            if (observed - tempo).abs() <= 1.0 {
-                return Some(HonestResult {
-                    success: true,
-                    verified: Some(true),
-                    reason: None,
-                    error: None,
-                    detail: Some(serde_json::json!({
-                        "requested": tempo,
-                        "observed": observed,
-                        "via": "ax_slider",
-                    })),
-                });
-            }
+        if let Some(observed) = read_tempo_value(app.get())
+            && (observed - tempo).abs() <= 1.0
+        {
+            return Some(HonestResult {
+                success: true,
+                verified: Some(true),
+                reason: None,
+                error: None,
+                detail: Some(serde_json::json!({
+                    "requested": tempo,
+                    "observed": observed,
+                    "via": "ax_slider",
+                })),
+            });
         }
 
         cg_input::press_escape();

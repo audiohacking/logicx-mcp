@@ -13,9 +13,12 @@ use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-static CORE_MIDI: Lazy<Arc<MidiEngine>> = Lazy::new(|| Arc::new(MidiEngine::new(crate::channels::coremidi::PORT_NAME)));
-static MCU_MIDI: Lazy<Arc<MidiEngine>> = Lazy::new(|| Arc::new(MidiEngine::new(crate::midi::mcu_protocol::PORT_NAME)));
-static KEYCMD_MIDI: Lazy<Arc<MidiEngine>> = Lazy::new(|| Arc::new(MidiEngine::new(crate::channels::keycmd::PORT_NAME)));
+static CORE_MIDI: Lazy<Arc<MidiEngine>> =
+    Lazy::new(|| Arc::new(MidiEngine::new(crate::channels::coremidi::PORT_NAME)));
+static MCU_MIDI: Lazy<Arc<MidiEngine>> =
+    Lazy::new(|| Arc::new(MidiEngine::new(crate::midi::mcu_protocol::PORT_NAME)));
+static KEYCMD_MIDI: Lazy<Arc<MidiEngine>> =
+    Lazy::new(|| Arc::new(MidiEngine::new(crate::channels::keycmd::PORT_NAME)));
 
 pub struct ChannelRouter {
     core: CoreMidiChannel,
@@ -42,6 +45,7 @@ impl ChannelRouter {
         let _ = CORE_MIDI.start();
         let _ = MCU_MIDI.start();
         let _ = KEYCMD_MIDI.start();
+        let _ = crate::channels::scripter::ensure_started();
         mcu_feedback::ensure_started(crate::midi::mcu_state::McuStateCache::global());
         mcu_feedback::send_device_query(&MCU_MIDI);
         self.started = true;
@@ -61,7 +65,9 @@ impl ChannelRouter {
             ChannelId::Accessibility => AxChannel::execute(operation, params),
             ChannelId::Mcu => self.mcu.execute(operation, params),
             ChannelId::CoreMidi => self.core.execute(operation, params),
-            ChannelId::MidiKeyCommands => crate::channels::keycmd::KeyCmdChannel::execute(operation, params),
+            ChannelId::MidiKeyCommands => {
+                crate::channels::keycmd::KeyCmdChannel::execute(operation, params)
+            }
             ChannelId::CgEvent => CgEventChannel::execute(operation, params),
             ChannelId::AppleScript => AppleScriptChannel::execute(operation, params),
             ChannelId::Scripter => ScripterChannel::execute(operation, params),
@@ -112,9 +118,12 @@ pub fn bypass_readiness_ops() -> &'static [&'static str] {
 }
 
 fn port_unavailable_envelope(operation: &str, hint: &str) -> String {
-    use logicx_core::{encode_state_c, HonestError};
+    use logicx_core::{HonestError, encode_state_c};
     let mut extras = serde_json::Map::new();
-    extras.insert("operation".into(), serde_json::Value::String(operation.into()));
+    extras.insert(
+        "operation".into(),
+        serde_json::Value::String(operation.into()),
+    );
     encode_state_c(HonestError::PortUnavailable, None, Some(hint), extras)
 }
 
@@ -125,10 +134,7 @@ pub fn route_chain(
     health: impl Fn(ChannelId) -> ChannelHealth,
     execute: impl Fn(ChannelId, &str, &Params) -> ChannelResult,
 ) -> ChannelResult {
-    let chain = routing_table()
-        .get(operation)
-        .cloned()
-        .unwrap_or_default();
+    let chain = routing_table().get(operation).cloned().unwrap_or_default();
 
     if chain.is_empty() {
         return ChannelResult::ok(format!("No channel required for {operation}"));
@@ -145,12 +151,8 @@ pub fn route_chain(
             last_error = format!("{}: {}", channel.as_str(), h.detail);
             continue;
         }
-        if !h.ready && !is_bypass {
-            last_error = format!(
-                "{} is not runtime-ready: {}",
-                channel.as_str(),
-                h.detail
-            );
+        if !h.ready && !is_bypass && !is_operator_gated(channel) {
+            last_error = format!("{} is not runtime-ready: {}", channel.as_str(), h.detail);
             continue;
         }
         let result = execute(channel, operation, params);
@@ -168,7 +170,9 @@ pub fn route_chain(
             last_error = msg.clone();
         }
     }
-    ChannelResult::err(format!("All channels exhausted for {operation}. Last: {last_error}"))
+    ChannelResult::err(format!(
+        "All channels exhausted for {operation}. Last: {last_error}"
+    ))
 }
 
 fn should_fallback_on_unverified(operation: &str, result: &ChannelResult) -> bool {
@@ -198,6 +202,23 @@ pub fn is_terminal_error(msg: &str) -> bool {
         || msg.contains("blocked while LogicX MCP")
 }
 
+fn is_operator_gated(channel: ChannelId) -> bool {
+    matches!(channel, ChannelId::Scripter | ChannelId::MidiKeyCommands)
+}
+
+/// Ops excluded from the production contract — fail before channel health gates.
+pub fn is_not_implemented_op(operation: &str) -> bool {
+    matches!(
+        operation,
+        "mixer.set_send"
+            | "mixer.toggle_eq"
+            | "mixer.reset_strip"
+            | "mixer.set_output"
+            | "mixer.set_input"
+            | "mixer.set_output_volume"
+    )
+}
+
 pub fn routing_table() -> &'static HashMap<&'static str, Vec<ChannelId>> {
     static TABLE: Lazy<HashMap<&'static str, Vec<ChannelId>>> = Lazy::new(|| {
         let mut m = HashMap::new();
@@ -208,24 +229,80 @@ pub fn routing_table() -> &'static HashMap<&'static str, Vec<ChannelId>> {
         }
 
         ins!("transport.play", Accessibility, Mcu, CoreMidi, CgEvent);
-        ins!("transport.stop", Accessibility, Mcu, CoreMidi, CgEvent, AppleScript);
-        ins!("transport.record", Accessibility, Mcu, CoreMidi, CgEvent, AppleScript);
+        ins!(
+            "transport.stop",
+            Accessibility,
+            Mcu,
+            CoreMidi,
+            CgEvent,
+            AppleScript
+        );
+        ins!(
+            "transport.record",
+            Accessibility,
+            Mcu,
+            CoreMidi,
+            CgEvent,
+            AppleScript
+        );
         ins!("transport.pause", CoreMidi, CgEvent);
         ins!("transport.rewind", Mcu, CoreMidi, CgEvent);
         ins!("transport.fast_forward", Mcu, CoreMidi, CgEvent);
-        ins!("transport.toggle_cycle", Accessibility, Mcu, MidiKeyCommands, CgEvent);
-        ins!("transport.toggle_metronome", Accessibility, MidiKeyCommands, CgEvent);
+        ins!(
+            "transport.toggle_cycle",
+            Accessibility,
+            Mcu,
+            MidiKeyCommands,
+            CgEvent
+        );
+        ins!(
+            "transport.toggle_metronome",
+            Accessibility,
+            MidiKeyCommands,
+            CgEvent
+        );
         ins!("transport.set_tempo", Accessibility);
-        ins!("transport.goto_position", Accessibility, Mcu, CoreMidi, CgEvent);
+        ins!(
+            "transport.goto_position",
+            Accessibility,
+            Mcu,
+            CoreMidi,
+            CgEvent
+        );
         ins!("transport.set_cycle_range", Accessibility);
-        ins!("transport.toggle_count_in", Accessibility, MidiKeyCommands, CgEvent);
+        ins!(
+            "transport.toggle_count_in",
+            Accessibility,
+            MidiKeyCommands,
+            CgEvent
+        );
         ins!("transport.capture_recording", MidiKeyCommands, CgEvent);
 
         ins!("track.select", Accessibility, Mcu);
-        ins!("track.create_audio", Accessibility, MidiKeyCommands, CgEvent);
-        ins!("track.create_instrument", Accessibility, MidiKeyCommands, CgEvent);
-        ins!("track.create_drummer", Accessibility, MidiKeyCommands, CgEvent);
-        ins!("track.create_external_midi", Accessibility, MidiKeyCommands, CgEvent);
+        ins!(
+            "track.create_audio",
+            Accessibility,
+            MidiKeyCommands,
+            CgEvent
+        );
+        ins!(
+            "track.create_instrument",
+            Accessibility,
+            MidiKeyCommands,
+            CgEvent
+        );
+        ins!(
+            "track.create_drummer",
+            Accessibility,
+            MidiKeyCommands,
+            CgEvent
+        );
+        ins!(
+            "track.create_external_midi",
+            Accessibility,
+            MidiKeyCommands,
+            CgEvent
+        );
         ins!("track.delete", Accessibility, MidiKeyCommands, CgEvent);
         ins!("track.rename", Accessibility);
         ins!("track.set_mute", Accessibility, Mcu, CgEvent);
@@ -376,12 +453,11 @@ pub fn channel_result_to_honest(result: ChannelResult) -> HonestResult {
             reason,
             detail,
         } => {
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&message) {
-                if v.get("success").is_some() {
-                    if let Ok(h) = serde_json::from_value::<HonestResult>(v) {
-                        return h;
-                    }
-                }
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&message)
+                && v.get("success").is_some()
+                && let Ok(h) = serde_json::from_value::<HonestResult>(v)
+            {
+                return h;
             }
             HonestResult {
                 success: true,
@@ -392,12 +468,11 @@ pub fn channel_result_to_honest(result: ChannelResult) -> HonestResult {
             }
         }
         ChannelResult::Error(e) => {
-            if logicx_core::is_terminal_state_c(&e) {
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&e) {
-                    if let Ok(h) = serde_json::from_value::<HonestResult>(v) {
-                        return h;
-                    }
-                }
+            if logicx_core::is_terminal_state_c(&e)
+                && let Ok(v) = serde_json::from_str::<serde_json::Value>(&e)
+                && let Ok(h) = serde_json::from_value::<HonestResult>(v)
+            {
+                return h;
             }
             HonestResult::failed(e)
         }
@@ -446,7 +521,10 @@ mod tests {
         assert_eq!(operation_for_tool("logic_tracks", "mute"), "track.set_mute");
         assert_eq!(operation_for_tool("logic_tracks", "solo"), "track.set_solo");
         assert_eq!(operation_for_tool("logic_tracks", "arm"), "track.set_arm");
-        assert_eq!(operation_for_tool("logic_tracks", "list_library"), "library.list");
+        assert_eq!(
+            operation_for_tool("logic_tracks", "list_library"),
+            "library.list"
+        );
         assert_eq!(
             operation_for_tool("logic_tracks", "scan_plugin_presets"),
             "plugin.scan_presets"
@@ -492,7 +570,10 @@ mod tests {
             super::bypass_readiness_ops().iter().copied().collect();
         for (op, chain) in super::routing_table().iter() {
             if op.starts_with("midi.") && op.ends_with(".keycmd") {
-                assert!(bypass.contains(*op), "{op} missing from bypass_readiness_ops");
+                assert!(
+                    bypass.contains(*op),
+                    "{op} missing from bypass_readiness_ops"
+                );
                 assert_eq!(chain.as_slice(), &[ChannelId::MidiKeyCommands]);
             }
         }
@@ -565,7 +646,11 @@ mod tests {
             },
             |ch, _, _| {
                 calls.borrow_mut().push(ch);
-                if ch == ChannelId::CgEvent {
+                if ch == ChannelId::MidiKeyCommands {
+                    ChannelResult::err(
+                        "midi_key_commands requires operator approval — run logic_system approve_channel",
+                    )
+                } else if ch == ChannelId::CgEvent {
                     ChannelResult::ok("cg undo")
                 } else {
                     ChannelResult::err("unexpected")
@@ -573,7 +658,10 @@ mod tests {
             },
         );
         assert!(result.is_success());
-        assert_eq!(*calls.borrow(), vec![ChannelId::CgEvent]);
+        assert_eq!(
+            *calls.borrow(),
+            vec![ChannelId::MidiKeyCommands, ChannelId::CgEvent]
+        );
     }
 
     #[test]
@@ -646,7 +734,7 @@ mod tests {
 
     #[test]
     fn mock_terminal_state_c_does_not_fall_through() {
-        use logicx_core::{encode_state_c, HonestError};
+        use logicx_core::{HonestError, encode_state_c};
         use std::cell::Cell;
         let terminal = encode_state_c(
             HonestError::ElementNotFound,
@@ -707,7 +795,7 @@ mod tests {
 
     #[test]
     fn channel_result_parses_state_b_envelope() {
-        use logicx_core::{encode_state_b, HonestReason};
+        use logicx_core::{HonestReason, encode_state_b};
         use serde_json::Map;
         let mut extras = Map::new();
         extras.insert("operation".into(), serde_json::json!("project.save"));
@@ -718,7 +806,7 @@ mod tests {
             reason: Some("readback_unavailable".into()),
             detail: None,
         });
-        assert_eq!(result.success, true);
+        assert!(result.success);
         assert_eq!(result.verified, Some(false));
         assert_eq!(result.reason.as_deref(), Some("readback_unavailable"));
     }

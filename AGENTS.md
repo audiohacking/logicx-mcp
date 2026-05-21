@@ -107,14 +107,14 @@ Reference: [MongLong0214/logic-pro-mcp](https://github.com/MongLong0214/logic-pr
 | MIDIKeyCommands (true CC on ch 16) | Done — approval gate + ~50 ops |
 | StatePoller + `logic://` resource cache | Done — background AX supplementary poll |
 | Operator approval gates | Done — KeyCmd + Scripter |
-| Scripter CC bridge | Stub |
-| Injectable AX test harness (FakeAXRuntime) | Not started |
+| Scripter CC bridge | Done — CC 102–119 on CH16, approval gate |
+| Injectable AX test harness (FakeAXRuntime) | Done — `logicx_control::ax_test` script hooks |
 | Full reference Swift test matrix (~99 files) | Partial — consolidated in `logic_pro_mcp_parity.rs` |
 
 Port order for remaining parity:
 
-1. Scripter CC bridge + plugin-param routing
-2. Injectable AX/CGEvent runtime for offline channel tests
+1. Scripter Lua preset distribution + live validation in Logic
+2. Expand offline AX channel tests using `ax_test` hooks
 3. Expand live E2E coverage (`scripts/test-live.sh --ignored`)
 
 ## System prompt

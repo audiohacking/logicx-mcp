@@ -1,6 +1,6 @@
+use crate::BUILD_ID;
 use crate::LogicxMcpParams;
 use crate::plugin_state::PluginState;
-use crate::BUILD_ID;
 use logicx_agent::{check_ollama_connection, run_agent};
 use logicx_core::{AgentSettings, ChatMessage, ChatRole, UiAgentEvent, prompt::UI_HINT};
 use std::sync::Arc;
@@ -158,7 +158,9 @@ impl EditorUi<LogicxMcpParams> for ChatEditor {
                 .exact_height(108.0)
                 .show(ctx, |ui| {
                     ui.add_space(4.0);
-                    ui.label(format!("Build {BUILD_ID} · direct curl to Ollama (same as standalone)"));
+                    ui.label(format!(
+                        "Build {BUILD_ID} · direct curl to Ollama (same as standalone)"
+                    ));
                     ui.label("Ollama settings (local or remote URL)");
                     let mut url = self.ollama_base_url.clone();
                     let mut model = self.model.clone();
@@ -238,21 +240,17 @@ impl EditorUi<LogicxMcpParams> for ChatEditor {
                     );
 
                     ui.horizontal(|ui| {
-                        ui.with_layout(
-                            egui::Layout::right_to_left(egui::Align::Center),
-                            |ui| {
-                                if ui
-                                    .add_enabled(
-                                        can_send,
-                                        egui::Button::new("Send")
-                                            .min_size(egui::vec2(72.0, 28.0)),
-                                    )
-                                    .clicked()
-                                {
-                                    self.submit_prompt();
-                                }
-                            },
-                        );
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui
+                                .add_enabled(
+                                    can_send,
+                                    egui::Button::new("Send").min_size(egui::vec2(72.0, 28.0)),
+                                )
+                                .clicked()
+                            {
+                                self.submit_prompt();
+                            }
+                        });
                     });
 
                     if response.has_focus()
@@ -483,18 +481,19 @@ impl ChatEditor {
                     self.event_rx = None;
                 }
                 UiAgentEvent::ToolStarted { name, arguments } => {
-                    let summary = format!("→ {name} {}", summarize_tool_args_for_display(&name, &arguments));
+                    let summary = format!(
+                        "→ {name} {}",
+                        summarize_tool_args_for_display(&name, &arguments)
+                    );
                     self.append_debug(format!("tool start: {summary}"));
-                    self.messages
-                        .push(ChatMessage::tool(name.clone(), summary));
+                    self.messages.push(ChatMessage::tool(name.clone(), summary));
                     self.status_line = "Running tools…".into();
                     dirty = true;
                 }
                 UiAgentEvent::ToolFinished { name, result } => {
                     let preview = preview(&result, 200);
                     self.append_debug(format!("tool done ({name}): {preview}"));
-                    self.messages
-                        .push(ChatMessage::tool(name.clone(), preview));
+                    self.messages.push(ChatMessage::tool(name.clone(), preview));
                     dirty = true;
                 }
                 UiAgentEvent::Error { message } => {
@@ -542,27 +541,21 @@ fn preview(text: &str, max: usize) -> String {
 
 fn summarize_tool_args_for_display(tool: &str, args: &serde_json::Value) -> String {
     let mut out = args.clone();
-    if tool == "logic_tracks" {
-        if let Some(obj) = out.as_object_mut() {
-            if obj.get("command").and_then(|c| c.as_str()) == Some("record_sequence") {
-                if let Some(params) = obj.get_mut("params").and_then(|p| p.as_object_mut()) {
-                    if let Some(notes) = params.get("notes").and_then(|n| n.as_str()) {
-                        let events = if notes.contains(';') {
-                            notes.split(';').filter(|s| !s.trim().is_empty()).count()
-                        } else {
-                            notes.split(',').filter(|s| !s.trim().is_empty()).count() / 3
-                        };
-                        params.insert(
-                            "notes".into(),
-                            serde_json::Value::String(format!(
-                                "<~{events} events, {} chars>",
-                                notes.len()
-                            )),
-                        );
-                    }
-                }
-            }
-        }
+    if tool == "logic_tracks"
+        && let Some(obj) = out.as_object_mut()
+        && obj.get("command").and_then(|c| c.as_str()) == Some("record_sequence")
+        && let Some(params) = obj.get_mut("params").and_then(|p| p.as_object_mut())
+        && let Some(notes) = params.get("notes").and_then(|n| n.as_str())
+    {
+        let events = if notes.contains(';') {
+            notes.split(';').filter(|s| !s.trim().is_empty()).count()
+        } else {
+            notes.split(',').filter(|s| !s.trim().is_empty()).count() / 3
+        };
+        params.insert(
+            "notes".into(),
+            serde_json::Value::String(format!("<~{events} events, {} chars>", notes.len())),
+        );
     }
     out.to_string()
 }

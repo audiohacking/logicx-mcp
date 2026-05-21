@@ -6,6 +6,9 @@ license.workspace = true
 repository.workspace = true
 description = "Out-of-process Ollama HTTP proxy for LogicX MCP AU (bypasses DAW network sandbox)"
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "logicx-ollama-proxy"
 path = "src/main.rs"

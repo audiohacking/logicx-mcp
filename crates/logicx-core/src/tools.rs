@@ -180,7 +180,15 @@ fn navigate_commands() -> &'static [&'static str] {
 
 fn project_commands() -> &'static [&'static str] {
     &[
-        "new", "open", "save", "save_as", "close", "bounce", "launch", "quit", "is_running",
+        "new",
+        "open",
+        "save",
+        "save_as",
+        "close",
+        "bounce",
+        "launch",
+        "quit",
+        "is_running",
         "get_regions",
     ]
 }

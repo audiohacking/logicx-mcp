@@ -1,8 +1,8 @@
 use crate::channels::{ChannelHealth, ChannelResult, Params};
 use crate::macos;
 use logicx_core::session::blocks_project_lifecycle;
-use logicx_core::{encode_state_b, HonestReason};
-use serde_json::{json, Map, Value};
+use logicx_core::{HonestReason, encode_state_b};
+use serde_json::{Map, Value, json};
 
 pub struct AppleScriptChannel;
 
@@ -57,12 +57,10 @@ end tell"#),
                 )
             }
             "project.save" => wrap_mutating(
-                run(
-                    r#"tell application "Logic Pro"
+                run(r#"tell application "Logic Pro"
     if (count of documents) > 0 then save front document
     return "OK"
-end tell"#,
-                ),
+end tell"#),
                 operation,
                 Map::new(),
             ),
@@ -86,11 +84,9 @@ end tell"#
             }
             "project.launch" => run(r#"tell application "Logic Pro" to activate"#),
             "project.quit" => run(r#"tell application "Logic Pro" to quit"#),
-            "project.bounce" => run(
-                r#"tell application "Logic Pro" to activate
+            "project.bounce" => run(r#"tell application "Logic Pro" to activate
 tell application "System Events" to keystroke "b" using {command down, option down}
-return "OK""#,
-            ),
+return "OK""#),
             "transport.stop" => wrap_mutating(
                 run(r#"tell application id "com.apple.logic10" to stop"#),
                 operation,
@@ -109,7 +105,11 @@ return "OK""#,
     }
 }
 
-fn wrap_mutating(result: ChannelResult, operation: &str, extras: Map<String, Value>) -> ChannelResult {
+fn wrap_mutating(
+    result: ChannelResult,
+    operation: &str,
+    extras: Map<String, Value>,
+) -> ChannelResult {
     if !result.is_success() {
         return result;
     }
@@ -197,8 +197,8 @@ mod tests {
 
     #[test]
     fn escape_doubles_backslashes_and_quotes() {
-        assert_eq!(escape(r#"C:\path\file"#.into()), r"C:\\path\\file");
-        assert_eq!(escape(r#"/tmp/a"b.logicx"#.into()), r#"/tmp/a\"b.logicx"#);
+        assert_eq!(escape(r#"C:\path\file"#), r"C:\\path\\file");
+        assert_eq!(escape(r#"/tmp/a"b.logicx"#), r#"/tmp/a\"b.logicx"#);
     }
 
     #[test]
@@ -218,12 +218,14 @@ mod tests {
 
     #[test]
     fn wrap_mutating_produces_state_b_envelope() {
-        let wrapped = wrap_mutating(
-            ChannelResult::ok("OK"),
-            "project.save",
-            Map::new(),
-        );
-        let ChannelResult::Success { message, verified, reason, .. } = wrapped else {
+        let wrapped = wrap_mutating(ChannelResult::ok("OK"), "project.save", Map::new());
+        let ChannelResult::Success {
+            message,
+            verified,
+            reason,
+            ..
+        } = wrapped
+        else {
             panic!("expected success");
         };
         assert_eq!(verified, Some(false));
@@ -239,11 +241,7 @@ mod tests {
 
     #[test]
     fn wrap_mutating_passes_through_errors() {
-        let err = wrap_mutating(
-            ChannelResult::err("boom"),
-            "project.save",
-            Map::new(),
-        );
+        let err = wrap_mutating(ChannelResult::err("boom"), "project.save", Map::new());
         assert!(!err.is_success());
     }
 

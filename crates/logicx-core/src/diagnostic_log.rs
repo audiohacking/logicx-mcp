@@ -17,7 +17,11 @@ pub fn bridge_log_path() -> PathBuf {
 }
 
 pub fn append_plugin_log(line: impl AsRef<str>) {
-    append_line(&plugin_log_path(), line.as_ref(), Some(MAX_PLUGIN_LOG_BYTES));
+    append_line(
+        &plugin_log_path(),
+        line.as_ref(),
+        Some(MAX_PLUGIN_LOG_BYTES),
+    );
 }
 
 pub fn append_bridge_log(line: impl AsRef<str>) {
@@ -76,7 +80,7 @@ pub fn install_panic_hook(label: &str) {
     let label = label.to_string();
     ONCE.call_once(|| {
         std::panic::set_hook(Box::new(move |info| {
-            append_plugin_log(&format!("PANIC [{label}]: {info}"));
+            append_plugin_log(format!("PANIC [{label}]: {info}"));
         }));
     });
 }

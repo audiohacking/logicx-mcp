@@ -1,11 +1,12 @@
 mod ax_native;
 mod ax_ops;
+mod ax_runtime;
 mod cg_input;
 mod import;
 mod permissions;
 mod project;
-mod transport;
 mod tracks;
+mod transport;
 
 use logicx_core::HonestResult;
 use std::process::Command;
@@ -16,8 +17,10 @@ pub use permissions::{
     prime_automation_prompts,
 };
 pub use project::{front_project_name, has_open_project};
-pub use transport::{read_transport_state, transport_goto_bar, transport_play, transport_set_tempo, transport_stop};
 pub use tracks::{create_audio_track, create_instrument_track};
+pub use transport::{
+    read_transport_state, transport_goto_bar, transport_play, transport_set_tempo, transport_stop,
+};
 
 pub use ax_native::dialog_present;
 pub use ax_ops::{
@@ -26,6 +29,7 @@ pub use ax_ops::{
     run_ax_script, save_as_dialog, scan_library, scan_plugin_presets, select_track,
     set_cycle_range, set_instrument, set_track_toggle, verify_track_delta,
 };
+pub use ax_runtime::{clear_script_hook, run_script as run_ax_script_hook, set_script_hook};
 
 pub fn is_logic_running() -> bool {
     Command::new("/usr/bin/pgrep")

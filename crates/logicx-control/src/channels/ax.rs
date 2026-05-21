@@ -85,15 +85,11 @@ impl AxChannel {
                 macos::transport_set_tempo(tempo).into()
             }
             "transport.goto_position" => {
-                let Some(bar) = params
-                    .get("bar")
-                    .and_then(|s| s.parse().ok())
-                    .or_else(|| {
-                        params
-                            .get("position")
-                            .and_then(|p| p.split('.').next()?.parse().ok())
-                    })
-                else {
+                let Some(bar) = params.get("bar").and_then(|s| s.parse().ok()).or_else(|| {
+                    params
+                        .get("position")
+                        .and_then(|p| p.split('.').next()?.parse().ok())
+                }) else {
                     return ChannelResult::err("goto_position requires bar");
                 };
                 macos::transport_goto_bar(bar).into()
@@ -191,6 +187,8 @@ impl AxChannel {
             "track.get_tracks" => macos::get_tracks().into(),
             "transport.get_state" => macos::read_transport_state().into(),
             "mixer.get_state" => mixer_state_from_mcu(),
+            "mixer.toggle_eq" | "mixer.set_send" | "mixer.reset_strip" | "mixer.set_output"
+            | "mixer.set_input" => ChannelResult::not_implemented(operation),
             _ => ChannelResult::err(format!("Unsupported AX operation: {operation}")),
         }
     }
@@ -210,7 +208,10 @@ impl AxChannel {
         }
 
         let bar = params.get("bar").and_then(|s| s.parse().ok()).unwrap_or(4);
-        let tempo = params.get("tempo").and_then(|s| s.parse().ok()).unwrap_or(120.0);
+        let tempo = params
+            .get("tempo")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(120.0);
         let event_count = events.len();
 
         let path = match smf::write_temp_file(&events, tempo, bar) {

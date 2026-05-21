@@ -36,7 +36,11 @@ fn parse_semicolon_format(spec: &str) -> Result<Vec<NoteEvent>, String> {
 
 /// `36,0,500,107,250,250` → two events when grouped as triplets.
 fn parse_comma_stream(spec: &str) -> Result<Vec<NoteEvent>, String> {
-    let fields: Vec<&str> = spec.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+    let fields: Vec<&str> = spec
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
     if fields.len() < 3 {
         return Err(format!(
             "notes must use semicolons between events (e.g. \"36,0,500;36,500,500\"); got: {spec}"

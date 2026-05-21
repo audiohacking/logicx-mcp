@@ -27,8 +27,7 @@ pub fn targets_current_logic_project() -> bool {
 
 /// Destructive project lifecycle ops must not run while embedded in Logic.
 pub fn blocks_project_lifecycle(command: &str) -> bool {
-    targets_current_logic_project()
-        && matches!(command, "new" | "open" | "close" | "quit")
+    targets_current_logic_project() && matches!(command, "new" | "open" | "close" | "quit")
 }
 
 #[cfg(test)]

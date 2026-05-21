@@ -7,10 +7,10 @@ use logicx_core::HonestResult;
 pub fn transport_play() -> HonestResult {
     let _ = run_osascript_output(r#"tell application "Logic Pro" to activate"#);
     sleep_ms(200);
-    if is_ax_trusted() {
-        if let Some(result) = crate::macos::ax_native::transport_play() {
-            return result;
-        }
+    if is_ax_trusted()
+        && let Some(result) = crate::macos::ax_native::transport_play()
+    {
+        return result;
     }
     transport_play_system_events()
 }
@@ -43,16 +43,20 @@ on transportPlay()
 end transportPlay
 return transportPlay()
 "#;
-    honest_from_script("transport.play", "play via control-bar checkbox or space", run_osascript_output(script))
+    honest_from_script(
+        "transport.play",
+        "play via control-bar checkbox or space",
+        run_osascript_output(script),
+    )
 }
 
 pub fn transport_stop() -> HonestResult {
     let _ = run_osascript_output(r#"tell application "Logic Pro" to activate"#);
     sleep_ms(200);
-    if is_ax_trusted() {
-        if let Some(result) = crate::macos::ax_native::transport_stop() {
-            return result;
-        }
+    if is_ax_trusted()
+        && let Some(result) = crate::macos::ax_native::transport_stop()
+    {
+        return result;
     }
     transport_stop_system_events()
 }
@@ -91,17 +95,21 @@ on transportStop()
 end transportStop
 return transportStop()
 "#;
-    honest_from_script("transport.stop", "stop via control-bar checkbox or space", run_osascript_output(script))
+    honest_from_script(
+        "transport.stop",
+        "stop via control-bar checkbox or space",
+        run_osascript_output(script),
+    )
 }
 
 pub fn transport_set_tempo(tempo: f64) -> HonestResult {
     let _ = run_osascript_output(r#"tell application "Logic Pro" to activate"#);
     sleep_ms(250);
 
-    if is_ax_trusted() {
-        if let Some(result) = crate::macos::ax_native::set_tempo(tempo) {
-            return result;
-        }
+    if is_ax_trusted()
+        && let Some(result) = crate::macos::ax_native::set_tempo(tempo)
+    {
+        return result;
     }
 
     if automation_system_events_ok() {
@@ -261,10 +269,10 @@ pub fn transport_goto_bar(bar: u32) -> HonestResult {
     let _ = run_osascript_output(r#"tell application "Logic Pro" to activate"#);
     sleep_ms(250);
 
-    if is_ax_trusted() {
-        if let Some(result) = crate::macos::ax_native::goto_bar(bar) {
-            return result;
-        }
+    if is_ax_trusted()
+        && let Some(result) = crate::macos::ax_native::goto_bar(bar)
+    {
+        return result;
     }
 
     transport_goto_bar_system_events(bar)
@@ -385,10 +393,10 @@ return gotoSlider()
 }
 
 pub fn read_transport_state() -> HonestResult {
-    if is_ax_trusted() {
-        if let Some(result) = crate::macos::ax_native::read_transport_state() {
-            return result;
-        }
+    if is_ax_trusted()
+        && let Some(result) = crate::macos::ax_native::read_transport_state()
+    {
+        return result;
     }
     HonestResult {
         success: false,

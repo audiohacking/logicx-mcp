@@ -1,8 +1,8 @@
 //! Control-bar transport: bar position, cycle range, play/stop.
 
 use super::core::*;
-use core_foundation::base::CFTypeRef;
 use crate::macos::cg_input;
+use core_foundation::base::CFTypeRef;
 use core_graphics::geometry::CGPoint;
 use logicx_core::HonestResult;
 use std::thread;
@@ -16,20 +16,20 @@ pub fn goto_bar(bar: u32) -> Option<HonestResult> {
 
         if set_ax_value_f64(slider, bar as f64) {
             thread::sleep(Duration::from_millis(150));
-            if let Some(observed) = ax_value_f64(slider) {
-                if (observed - bar as f64).abs() <= 0.5 {
-                    return Some(HonestResult {
-                        success: true,
-                        verified: Some(true),
-                        reason: None,
-                        error: None,
-                        detail: Some(serde_json::json!({
-                            "requested": bar,
-                            "observed": observed,
-                            "via": "ax_bar_slider",
-                        })),
-                    });
-                }
+            if let Some(observed) = ax_value_f64(slider)
+                && (observed - bar as f64).abs() <= 0.5
+            {
+                return Some(HonestResult {
+                    success: true,
+                    verified: Some(true),
+                    reason: None,
+                    error: None,
+                    detail: Some(serde_json::json!({
+                        "requested": bar,
+                        "observed": observed,
+                        "via": "ax_bar_slider",
+                    })),
+                });
             }
         }
 
@@ -124,17 +124,17 @@ pub fn read_transport_state() -> Option<HonestResult> {
     unsafe {
         let app = logic_app()?;
         let is_playing = find_checkbox(app.get(), &["Play", "재생"])
-            .and_then(|cb| {
+            .map(|cb| {
                 let on = ax_value_f64(cb).map(|v| v >= 0.5).unwrap_or(false);
                 release(cb as CFTypeRef);
-                Some(on)
+                on
             })
             .unwrap_or(false);
         let is_recording = find_checkbox(app.get(), &["Record", "녹음"])
-            .and_then(|cb| {
+            .map(|cb| {
                 let on = ax_value_f64(cb).map(|v| v >= 0.5).unwrap_or(false);
                 release(cb as CFTypeRef);
-                Some(on)
+                on
             })
             .unwrap_or(false);
         let position = find_bar_slider(app.get())
@@ -160,11 +160,7 @@ pub fn read_transport_state() -> Option<HonestResult> {
     }
 }
 
-pub fn toggle_checkbox(
-    titles: &[&str],
-    want_on: Option<bool>,
-    via: &str,
-) -> Option<HonestResult> {
+pub fn toggle_checkbox(titles: &[&str], want_on: Option<bool>, via: &str) -> Option<HonestResult> {
     unsafe {
         let app = logic_app()?;
         let checkbox = find_checkbox(app.get(), titles)?;

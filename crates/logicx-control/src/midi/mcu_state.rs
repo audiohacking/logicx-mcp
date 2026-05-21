@@ -155,10 +155,10 @@ pub fn poll_fader_echo(
 ) -> Option<f64> {
     let deadline = Instant::now() + std::time::Duration::from_millis(timeout_ms);
     while Instant::now() < deadline {
-        if let Some(observed) = cache.get_fader(strip) {
-            if (observed - target).abs() <= tolerance {
-                return Some(observed);
-            }
+        if let Some(observed) = cache.get_fader(strip)
+            && (observed - target).abs() <= tolerance
+        {
+            return Some(observed);
         }
         std::thread::sleep(std::time::Duration::from_millis(25));
     }

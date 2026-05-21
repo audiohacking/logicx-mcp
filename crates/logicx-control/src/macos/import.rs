@@ -20,10 +20,10 @@ pub fn import_midi_file(path: &str) -> HonestResult {
     let _ = run_osascript_output(r#"tell application "Logic Pro" to activate"#);
     sleep_ms(300);
 
-    if is_ax_trusted() {
-        if let Some(result) = import_midi_native(path) {
-            return result;
-        }
+    if is_ax_trusted()
+        && let Some(result) = import_midi_native(path)
+    {
+        return result;
     }
 
     import_midi_system_events(path)

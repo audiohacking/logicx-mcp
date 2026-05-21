@@ -3,8 +3,8 @@
 
 use logicx_core::ollama_proxy::{self, ProxyRequest, ProxyResponse};
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
 use std::io::ErrorKind;
+use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::process::{Command, Output, Stdio};
 use std::thread;
@@ -61,9 +61,8 @@ fn handle_client(mut stream: UnixStream) -> std::io::Result<()> {
         Err(e) => ProxyResponse::failure(format!("invalid request JSON: {e}")),
     };
 
-    let out = serde_json::to_string(&response).unwrap_or_else(|e| {
-        format!(r#"{{"ok":false,"error":"encode error: {e}"}}"#)
-    });
+    let out = serde_json::to_string(&response)
+        .unwrap_or_else(|e| format!(r#"{{"ok":false,"error":"encode error: {e}"}}"#));
     stream.write_all(out.as_bytes())?;
     stream.write_all(b"\n")?;
     stream.flush()?;

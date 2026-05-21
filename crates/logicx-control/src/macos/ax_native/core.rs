@@ -1,7 +1,9 @@
 //! Shared native Accessibility helpers (logic-pro-mcp AXLogicProElements parity).
 
 use core_foundation::array::{CFArray, CFArrayRef};
-use core_foundation::base::{CFGetTypeID, CFRelease, CFRetain, CFType, CFTypeID, CFTypeRef, TCFType};
+use core_foundation::base::{
+    CFGetTypeID, CFRelease, CFRetain, CFType, CFTypeID, CFTypeRef, TCFType,
+};
 use core_foundation::boolean::CFBoolean;
 use core_foundation::number::CFNumber;
 use core_foundation::string::CFString;
@@ -37,11 +39,7 @@ pub struct RetainedAx(AxRef);
 
 impl RetainedAx {
     pub unsafe fn new(ptr: AxRef) -> Option<Self> {
-        if ptr.is_null() {
-            None
-        } else {
-            Some(Self(ptr))
-        }
+        if ptr.is_null() { None } else { Some(Self(ptr)) }
     }
 
     pub fn get(&self) -> AxRef {
@@ -189,19 +187,12 @@ pub unsafe fn cf_string_attr(element: AxRef, attr: &str) -> Option<String> {
 pub unsafe fn copy_attr(element: AxRef, attr: &str) -> Option<CFTypeRef> {
     let key = CFString::new(attr);
     let mut value: CFTypeRef = std::ptr::null_mut();
-    if AXUIElementCopyAttributeValue(
-        element,
-        key.as_concrete_TypeRef() as CFTypeRef,
-        &mut value,
-    ) != AX_SUCCESS
+    if AXUIElementCopyAttributeValue(element, key.as_concrete_TypeRef() as CFTypeRef, &mut value)
+        != AX_SUCCESS
     {
         return None;
     }
-    if value.is_null() {
-        None
-    } else {
-        Some(value)
-    }
+    if value.is_null() { None } else { Some(value) }
 }
 
 pub unsafe fn copy_attr_array(element: AxRef, attr: &str) -> Option<CFArray<CFType>> {
@@ -219,12 +210,20 @@ pub unsafe fn ax_position_size(element: AxRef) -> Option<(CGPoint, CGSize)> {
     let size_ref = copy_attr(element, K_AX_SIZE)?;
     let mut point = CGPoint::new(0.0, 0.0);
     let mut size = CGSize::new(0.0, 0.0);
-    if !AXValueGetValue(pos_ref, AX_VALUE_CGPOINT, &mut point as *mut _ as *mut c_void) {
+    if !AXValueGetValue(
+        pos_ref,
+        AX_VALUE_CGPOINT,
+        &mut point as *mut _ as *mut c_void,
+    ) {
         CFRelease(pos_ref);
         CFRelease(size_ref);
         return None;
     }
-    if !AXValueGetValue(size_ref, AX_VALUE_CGSIZE, &mut size as *mut _ as *mut c_void) {
+    if !AXValueGetValue(
+        size_ref,
+        AX_VALUE_CGSIZE,
+        &mut size as *mut _ as *mut c_void,
+    ) {
         CFRelease(pos_ref);
         CFRelease(size_ref);
         return None;
@@ -244,7 +243,11 @@ pub unsafe fn ax_value_f64(element: AxRef) -> Option<f64> {
         s.to_string().parse().ok()
     } else if cf_type_id(value) == CFBoolean::type_id() {
         let b: CFBoolean = CFType::wrap_under_create_rule(value).downcast_into()?;
-        Some(if b == CFBoolean::true_value() { 1.0 } else { 0.0 })
+        Some(if b == CFBoolean::true_value() {
+            1.0
+        } else {
+            0.0
+        })
     } else {
         release(value);
         None
@@ -252,7 +255,7 @@ pub unsafe fn ax_value_f64(element: AxRef) -> Option<f64> {
 }
 
 pub unsafe fn set_ax_value_f64(element: AxRef, value: f64) -> bool {
-    let num = CFNumber::from(value as f64);
+    let num = CFNumber::from(value);
     let key = CFString::new(K_AX_VALUE);
     let ok = AXUIElementSetAttributeValue(
         element,

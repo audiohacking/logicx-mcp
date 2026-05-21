@@ -1,6 +1,9 @@
 use crate::channels::{ChannelHealth, ChannelResult, Params};
 use crate::midi::engine::MidiEngine;
-use crate::midi::{mcu_protocol::{self, TransportCommand}, mcu_state};
+use crate::midi::{
+    mcu_protocol::{self, TransportCommand},
+    mcu_state,
+};
 use serde_json::json;
 use std::sync::Arc;
 
@@ -41,19 +44,34 @@ impl McuChannel {
         }
 
         match operation {
-            "transport.play" => send(&self.engine, mcu_protocol::encode_transport(TransportCommand::Play)),
-            "transport.stop" => send(&self.engine, mcu_protocol::encode_transport(TransportCommand::Stop)),
-            "transport.record" => send(&self.engine, mcu_protocol::encode_transport(TransportCommand::Record)),
-            "transport.rewind" => send(&self.engine, mcu_protocol::encode_transport(TransportCommand::Rewind)),
-            "transport.fast_forward" => {
-                send(&self.engine, mcu_protocol::encode_transport(TransportCommand::FastForward))
-            }
-            "transport.toggle_cycle" => {
-                send(&self.engine, mcu_protocol::encode_transport(TransportCommand::Cycle))
-            }
-            "transport.toggle_metronome" => {
-                send(&self.engine, mcu_protocol::encode_transport(TransportCommand::Click))
-            }
+            "transport.play" => send(
+                &self.engine,
+                mcu_protocol::encode_transport(TransportCommand::Play),
+            ),
+            "transport.stop" => send(
+                &self.engine,
+                mcu_protocol::encode_transport(TransportCommand::Stop),
+            ),
+            "transport.record" => send(
+                &self.engine,
+                mcu_protocol::encode_transport(TransportCommand::Record),
+            ),
+            "transport.rewind" => send(
+                &self.engine,
+                mcu_protocol::encode_transport(TransportCommand::Rewind),
+            ),
+            "transport.fast_forward" => send(
+                &self.engine,
+                mcu_protocol::encode_transport(TransportCommand::FastForward),
+            ),
+            "transport.toggle_cycle" => send(
+                &self.engine,
+                mcu_protocol::encode_transport(TransportCommand::Cycle),
+            ),
+            "transport.toggle_metronome" => send(
+                &self.engine,
+                mcu_protocol::encode_transport(TransportCommand::Click),
+            ),
             "track.select" => {
                 let Some(index) = params.get("index").and_then(|s| s.parse().ok()) else {
                     return ChannelResult::err("requires explicit index");
@@ -110,7 +128,8 @@ impl McuChannel {
                     return ChannelResult::err("MCU send failed");
                 }
                 let cache = mcu_state::McuStateCache::global();
-                let observed = mcu_state::poll_fader_echo(&cache, track as usize, value, 500, 2.0 / 16383.0);
+                let observed =
+                    mcu_state::poll_fader_echo(&cache, track as usize, value, 500, 2.0 / 16383.0);
                 let detail = serde_json::json!({
                     "requested": value,
                     "observed": observed,
@@ -124,12 +143,12 @@ impl McuChannel {
                         detail: Some(detail),
                     };
                 }
-                return ChannelResult::Success {
+                ChannelResult::Success {
                     message: "ok".into(),
                     verified: Some(false),
                     reason: Some("echo_timeout_ms".into()),
                     detail: Some(detail),
-                };
+                }
             }
             "mixer.set_pan" => {
                 let Some(track) = params
@@ -158,6 +177,12 @@ impl McuChannel {
                 };
                 send(&self.engine, mcu_protocol::encode_fader(8, value))
             }
+            "mixer.set_send"
+            | "mixer.toggle_eq"
+            | "mixer.reset_strip"
+            | "mixer.set_output_volume"
+            | "mixer.set_output"
+            | "mixer.set_input" => ChannelResult::not_implemented(operation),
             "track.set_automation" => {
                 let _index = params.get("index").and_then(|s| s.parse::<u32>().ok());
                 let mode = params.get("mode").map(String::as_str).unwrap_or("read");

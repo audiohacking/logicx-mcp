@@ -31,12 +31,11 @@ pub fn cleanup_orphan_files(dir: &std::path::Path, max_age_secs: u64) {
         if path.extension().and_then(|e| e.to_str()) != Some("mid") {
             continue;
         }
-        if let Ok(meta) = entry.metadata() {
-            if let Ok(modified) = meta.modified() {
-                if modified < cutoff {
-                    let _ = std::fs::remove_file(&path);
-                }
-            }
+        if let Ok(meta) = entry.metadata()
+            && let Ok(modified) = meta.modified()
+            && modified < cutoff
+        {
+            let _ = std::fs::remove_file(&path);
         }
     }
 }
@@ -194,10 +193,7 @@ mod tests {
     #[test]
     fn smf_tempo_meta_event_120bpm() {
         let data = build_smf(&one_note(), 120.0, 1).unwrap();
-        assert!(find_pattern(
-            &[0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20],
-            &data
-        ));
+        assert!(find_pattern(&[0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20], &data));
     }
 
     #[test]

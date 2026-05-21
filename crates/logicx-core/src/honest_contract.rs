@@ -220,7 +220,12 @@ mod tests {
 
     #[test]
     fn add_extras_skips_state_c() {
-        let raw = encode_state_c(HonestError::AxWriteFailed, None, Some("permission?"), Map::new());
+        let raw = encode_state_c(
+            HonestError::AxWriteFailed,
+            None,
+            Some("permission?"),
+            Map::new(),
+        );
         let mut caller = Map::new();
         caller.insert("caller_flag".into(), json!(true));
         let merged = add_extras(caller, &raw);
@@ -229,10 +234,7 @@ mod tests {
 
     #[test]
     fn add_extras_invalid_json_passthrough() {
-        assert_eq!(
-            add_extras(Map::new(), "not json"),
-            "not json"
-        );
+        assert_eq!(add_extras(Map::new(), "not json"), "not json");
     }
 
     #[test]

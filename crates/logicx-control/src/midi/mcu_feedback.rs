@@ -1,8 +1,8 @@
 //! MCU MIDI feedback listener — parses Logic Pro echo into [`McuStateCache`].
 
-use midir::os::unix::VirtualInput;
-use super::mcu_state::McuStateCache;
 use super::mcu_protocol::{self, FEEDBACK_PORT_NAME};
+use super::mcu_state::McuStateCache;
+use midir::os::unix::VirtualInput;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::sync::Arc;

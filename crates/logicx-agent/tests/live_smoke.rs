@@ -43,7 +43,9 @@ fn health_check_prompt() {
         "expected logic_system tool call"
     );
     assert!(
-        events.iter().any(|e| matches!(e, UiAgentEvent::Assistant { .. })),
+        events
+            .iter()
+            .any(|e| matches!(e, UiAgentEvent::Assistant { .. })),
         "expected assistant reply"
     );
     assert!(

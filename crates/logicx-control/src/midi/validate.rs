@@ -20,8 +20,9 @@ pub fn validate_port(params: &[(String, String)]) -> ValidationResult<&'static s
         Some("midi") => Ok("midi"),
         Some("keycmd") => Ok("keycmd"),
         Some("scripter") => Err(ValidationError {
-            message: "port 'scripter' is not supported for logic_midi — use logic_mixer.set_plugin_param"
-                .into(),
+            message:
+                "port 'scripter' is not supported for logic_midi — use logic_mixer.set_plugin_param"
+                    .into(),
         }),
         Some(other) => Err(ValidationError {
             message: format!("unknown port '{other}' — use 'midi' or 'keycmd'"),
@@ -31,7 +32,10 @@ pub fn validate_port(params: &[(String, String)]) -> ValidationResult<&'static s
 
 /// Map 1-based MIDI channel (1..=16) to wire byte (0..=15).
 pub fn validate_midi_channel(params: &[(String, String)]) -> ValidationResult<u8> {
-    let raw = params.iter().find(|(k, _)| k == "channel").map(|(_, v)| v.as_str());
+    let raw = params
+        .iter()
+        .find(|(k, _)| k == "channel")
+        .map(|(_, v)| v.as_str());
     let Some(s) = raw else {
         return Ok(0);
     };
