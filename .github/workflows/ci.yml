@@ -63,4 +63,4 @@ jobs:
         run: cargo truce build --au2 -p logicx-plugin
 
       - name: Verify plugin metadata
-        run: cargo test -p logicx-plugin info_is_valid has_editor
+        run: cargo test -p logicx-plugin --lib
